@@ -1,0 +1,21 @@
+version: 1
+project:
+  title: My Research Project
+  authors:
+    - name: Your Name
+  copyright: '2026'
+  exclude:
+    - _build
+    - Thumbs.db
+    - .DS_Store
+    - '**.ipynb_checkpoints'
+  github: your-username/your-repo-name
+  toc:
+    - file: markdown/index.md
+    - title: Analysis
+      children:
+        - file: notebooks/02_analyse_example.ipynb
+site:
+  options:
+    folders: true
+  template: book-theme

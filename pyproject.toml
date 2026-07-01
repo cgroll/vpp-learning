@@ -1,0 +1,24 @@
+[project]
+name = "my-project"
+version = "0.1.0"
+description = "Research project"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # pipeline infrastructure — required by the template itself
+    "ipykernel>=6.29.0",
+    "jupytext>=1.19.0",
+    "mystmd>=1.8.0",
+    "nbformat>=5.10.0",
+    "snakemake>=8.0.0",
+    # add your project-specific analysis packages below, e.g.:
+    # "matplotlib>=3.9.0",
+    # "pandas>=2.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pkg"]

@@ -1,0 +1,31 @@
+_build/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environments
+.venv/
+.Python
+env/
+
+# Data (managed by Snakemake, not git)
+data/downloads/*
+data/processed/*
+!data/downloads/.gitkeep
+!data/processed/.gitkeep
+
+# Secrets
+.env
+
+# OS
+**/.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
