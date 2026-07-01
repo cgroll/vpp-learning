@@ -20,6 +20,10 @@ project:
           title: 1b — Efficiency + degradation cost
         - file: notebooks/04_simultaneous_dispatch.ipynb
           title: 1b addendum — Simultaneous C/D analysis
+    - title: Stage 2 — Forecasting & Realistic Dispatch
+      children:
+        - file: notebooks/05_price_forecast_baseline.ipynb
+          title: 2a — Baseline price forecast
 site:
   options:
     folders: true

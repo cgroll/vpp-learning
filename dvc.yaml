@@ -50,6 +50,22 @@ stages:
       - output/images/03_free_horizon_comparison.png:
           cache: false
 
+  forecast_baseline:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/05_price_forecast_baseline.ipynb pipeline/05_price_forecast_baseline.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/05_price_forecast_baseline.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/05_price_forecast_baseline.ipynb')"
+    deps:
+      - pipeline/05_price_forecast_baseline.py
+      - data/downloads/smard/prices_de_lu.parquet
+    outs:
+      - book/notebooks/05_price_forecast_baseline.ipynb:
+          cache: false
+      - output/images/05_per_hour_mae.png:
+          cache: false
+      - output/images/05_forecast_sample.png:
+          cache: false
+
   simultaneous_dispatch:
     cmd: |
       set -e

@@ -82,7 +82,9 @@ Scale from a single asset to an aggregated fleet.
 
 ## Current state (2026-07-01)
 
-Stages 1a, 1b, and 1b addendum complete. SMARD DE-LU hourly prices 2018-10-01 → 2026-06-29.
+Stages 1a, 1b, 1b addendum, and 2a complete.
+
+SMARD DE-LU hourly prices 2018-10-01 → 2026-06-29.
 
 **Stage 1a — Ideal LP (`pipeline/02_battery_dispatch_ideal.py`, η=1, PuLP/CBC):**
 - Daily-reset costs only −0.9% vs free horizon (4,205 vs 4,244 EUR/year annualized)
@@ -134,9 +136,35 @@ Three dispatch formulations compared (η_rt=0.9, daily reset, 100 kWh / 50 kW):
 - Revenue is always evaluated at real prices regardless of which prices were used for
   optimization (distorted objective ≠ distorted settlement)
 
+**Stage 2a — Baseline price forecast (`pipeline/05_price_forecast_baseline.py`):**
+
+Train/test split: 2018–2022 train (includes 2022 crisis), 2023–2026 test.
+Feature set: lag-24/48/168, previous-day mean/std, 7-day rolling mean, cyclical
+hour/dow/month encoding.
+
+| Model | MAE (EUR/MWh) | vs naïve |
+|---|---|---|
+| Naïve (lag-24) | 27.41 | — |
+| Ridge | 26.72 | −2.5% |
+| LightGBM | 28.49 | +4.0% |
+
+- Naïve (lag-24) is a very hard baseline: strong diurnal and daily autocorrelation
+  means yesterday's same-hour price is already highly informative
+- Ridge marginally improves by blending calendar and weekly lag features
+- LightGBM slightly *underperforms* the naïve baseline — driven by distribution
+  shift: the model learns 2022-crisis spike patterns during training that do not
+  transfer to the calmer 2023–2026 test period
+- The 4% LightGBM penalty vs naïve is small in absolute terms (≈1 EUR/MWh) but
+  reveals a structural issue: a longer training window amplifies crisis-era
+  patterns that hurt out-of-sample calibration
+
 ## Next steps
 
-1. Stage 2a: `pipeline/05_price_forecast_baseline.py` — baseline day-ahead price forecast at auction time
+1. Stage 2b: `pipeline/06_forecast_dispatch.py` — plug forecast prices into the
+   Stage 1 LP, settle at realized prices, decompose the gap to perfect-foresight
+   revenue
+2. Stage 2c: improve the forecast — rolling training window, additional features
+   (weather, load forecasts), or model ensembling
 
 ## Future ideas (not yet planned)
 

@@ -118,3 +118,32 @@ stages:
       hash: md5
       md5: 6693cde43ff9353ee42bc3c89ad23e03
       size: 192796
+  forecast_baseline:
+    cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
+      python3 --output book/notebooks/05_price_forecast_baseline.ipynb pipeline/05_price_forecast_baseline.py\n\
+      uv run python -c \"import nbformat; nb = nbformat.read('book/notebooks/05_price_forecast_baseline.ipynb',
+      as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw'
+      and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/05_price_forecast_baseline.ipynb')\"\
+      \n"
+    deps:
+    - path: data/downloads/smard/prices_de_lu.parquet
+      hash: md5
+      md5: f1886a2b97cd6a365960541adb2098fa
+      size: 828689
+    - path: pipeline/05_price_forecast_baseline.py
+      hash: md5
+      md5: 2fcc0cf794623d76d8e2d5549931e18a
+      size: 11400
+    outs:
+    - path: book/notebooks/05_price_forecast_baseline.ipynb
+      hash: md5
+      md5: 098cb06abcb9d4dd02fbb95f0cbe94b5
+      size: 20690
+    - path: output/images/05_forecast_sample.png
+      hash: md5
+      md5: 4f2a2e64064e6788dd796919cfa510e1
+      size: 280670
+    - path: output/images/05_per_hour_mae.png
+      hash: md5
+      md5: 3eb9d939bc0c0551155ae2fb3540ae6d
+      size: 132084
