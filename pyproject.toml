@@ -1,5 +1,5 @@
 [project]
-name = "my-project"
+name = "vpp-learning"
 version = "0.1.0"
 description = "Research project"
 readme = "README.md"
@@ -21,4 +21,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["pkg"]
+packages = ["vpp"]

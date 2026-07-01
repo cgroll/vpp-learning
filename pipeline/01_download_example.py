@@ -9,7 +9,7 @@ Replace this with your actual data acquisition logic.
 
 import pandas as pd
 import numpy as np
-from pkg.paths import ProjPaths
+from vpp.paths import ProjPaths
 
 paths = ProjPaths()
 paths.ensure_directories()

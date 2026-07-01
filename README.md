@@ -1,4 +1,4 @@
-# Project Book Template
+# Vpp Learning
 
 A template for research projects that publish a [MyST](https://mystmd.org/) Jupyter Book
 to GitHub Pages. The data pipeline is managed by [Snakemake](https://snakemake.readthedocs.io/);

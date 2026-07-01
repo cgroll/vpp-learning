@@ -23,7 +23,7 @@
 # %%
 import pandas as pd
 import matplotlib.pyplot as plt
-from pkg.paths import ProjPaths
+from vpp.paths import ProjPaths
 
 paths = ProjPaths()
 paths.ensure_directories()
