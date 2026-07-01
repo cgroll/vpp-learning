@@ -12,6 +12,10 @@ project:
   github: cgroll/vpp-learning
   toc:
     - file: markdown/index.md
+    - title: Stage 1 — Battery Dispatch
+      children:
+        - file: notebooks/02_battery_dispatch_ideal
+          title: 1a — Ideal LP (perfect foresight)
     - title: Enefit — Prosumer Forecasting
       children: []
 site:

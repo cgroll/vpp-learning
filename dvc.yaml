@@ -4,6 +4,26 @@ stages:
     outs:
       - data/downloads/smard/prices_de_lu.parquet
 
+  battery_dispatch_ideal:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/02_battery_dispatch_ideal.ipynb pipeline/02_battery_dispatch_ideal.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/02_battery_dispatch_ideal.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/02_battery_dispatch_ideal.ipynb')"
+    deps:
+      - pipeline/02_battery_dispatch_ideal.py
+      - data/downloads/smard/prices_de_lu.parquet
+    outs:
+      - book/notebooks/02_battery_dispatch_ideal.ipynb:
+          cache: false
+      - output/images/02_diurnal_dispatch_profile.png:
+          cache: false
+      - output/images/02_daily_revenue_heatmap.png:
+          cache: false
+      - output/images/02_annual_revenue_comparison.png:
+          cache: false
+      - output/images/02_soc_trajectory.png:
+          cache: false
+
 # Stages are added here as pipeline scripts are written.
 #
 # Pattern for download stages:
@@ -16,16 +36,10 @@ stages:
 # Pattern for analysis stages (jupytext → notebook):
 #
 #   eda_enefit:
-#     cmd: >
-#       MPLBACKEND=Agg uv run jupytext --to notebook --execute
-#         --set-kernel python3
-#         --output book/notebooks/02_eda_enefit.ipynb pipeline/02_eda_enefit.py &&
-#       uv run python -c "
-#       import nbformat
-#       nb = nbformat.read('book/notebooks/02_eda_enefit.ipynb', as_version=4)
-#       nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]
-#       nbformat.write(nb, 'book/notebooks/02_eda_enefit.ipynb')
-#       "
+#     cmd: |
+#       set -e
+#       MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/02_eda_enefit.ipynb pipeline/02_eda_enefit.py
+#       uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/02_eda_enefit.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/02_eda_enefit.ipynb')"
 #     deps:
 #       - pipeline/02_eda_enefit.py
 #       - data/downloads/enefit/

@@ -30,6 +30,8 @@ dependencies = [
     # utilities
     "tqdm>=4.66.0",
     "requests>=2.32.0",
+    "pulp>=3.3.2",
+    "nbconvert>=7.17.1",
 ]
 
 [dependency-groups]

@@ -47,16 +47,10 @@ A stage declares how to produce outputs from inputs:
 ```yaml
 stages:
   process_my_analysis:
-    cmd: >
-      MPLBACKEND=Agg uv run jupytext --to notebook --execute
-        --set-kernel python3
-        --output book/notebooks/03_my_analysis.ipynb pipeline/03_my_analysis.py &&
-      uv run python -c "
-      import nbformat
-      nb = nbformat.read('book/notebooks/03_my_analysis.ipynb', as_version=4)
-      nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]
-      nbformat.write(nb, 'book/notebooks/03_my_analysis.ipynb')
-      "
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/03_my_analysis.ipynb pipeline/03_my_analysis.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/03_my_analysis.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/03_my_analysis.ipynb')"
     deps:
       - pipeline/03_my_analysis.py
       - data/downloads/my_data.parquet
