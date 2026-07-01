@@ -66,6 +66,22 @@ stages:
       - output/images/05_forecast_sample.png:
           cache: false
 
+  forecast_dispatch:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/06_forecast_dispatch.ipynb pipeline/06_forecast_dispatch.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/06_forecast_dispatch.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/06_forecast_dispatch.ipynb')"
+    deps:
+      - pipeline/06_forecast_dispatch.py
+      - data/downloads/smard/prices_de_lu.parquet
+    outs:
+      - book/notebooks/06_forecast_dispatch.ipynb:
+          cache: false
+      - output/images/06_annual_revenue_comparison.png:
+          cache: false
+      - output/images/06_forecast_dispatch_detail.png:
+          cache: false
+
   simultaneous_dispatch:
     cmd: |
       set -e

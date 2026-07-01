@@ -158,13 +158,36 @@ hour/dow/month encoding.
   reveals a structural issue: a longer training window amplifies crisis-era
   patterns that hurt out-of-sample calibration
 
+**Stage 2b — Forecast-driven dispatch (`pipeline/06_forecast_dispatch.py`):**
+
+Battery: η_rt=0.9, MILP, no degradation, 100 kWh / 50 kW, daily reset.
+Settlement always at actual prices; only the optimisation signal differs.
+
+| Year | Hindsight (EUR/yr) | Naïve (EUR/yr) | Efficiency |
+|---|---|---|---|
+| 2018 | 1,290 | 863 | 66.9% |
+| 2019 | 1,043 | 755 | 72.5% |
+| 2020 | 1,149 | 848 | 73.8% |
+| 2021 | 2,833 | 2,188 | 77.2% |
+| 2022 | 6,881 | 5,543 | 80.6% |
+| 2023 | 3,574 | 2,923 | 81.8% |
+| 2024 | 4,097 | 3,447 | 84.1% |
+| 2025 | 4,594 | 3,947 | 85.9% |
+| **Overall** | **3,486** | **2,848** | **81.7%** |
+
+- Naïve lag-24 captures 81.7% of perfect-foresight revenue; gap is 639 EUR/yr
+- Efficiency improves over time (67% in 2018 → 87% in 2026): post-crisis
+  day-ahead prices are more auto-correlated (renewable-dominated diurnal shape
+  repeats more reliably day-over-day)
+- 2022 energy crisis: highest absolute revenues but not lowest efficiency,
+  because even during the crisis, large day-over-day spreads persisted
+- 55 days (2.0%) see negative forecast revenue: naïve dispatch charges on a high-
+  price day (because yesterday was high) and discharges on a low-price day
+
 ## Next steps
 
-1. Stage 2b: `pipeline/06_forecast_dispatch.py` — plug forecast prices into the
-   Stage 1 LP, settle at realized prices, decompose the gap to perfect-foresight
-   revenue
-2. Stage 2c: improve the forecast — rolling training window, additional features
-   (weather, load forecasts), or model ensembling
+1. Stage 2c: improve the forecast — rolling training window, additional features
+   (weather, load forecasts), or model ensembling to close part of the 639 EUR/yr gap
 
 ## Future ideas (not yet planned)
 

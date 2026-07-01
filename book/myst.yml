@@ -24,6 +24,8 @@ project:
       children:
         - file: notebooks/05_price_forecast_baseline.ipynb
           title: 2a — Baseline price forecast
+        - file: notebooks/06_forecast_dispatch.ipynb
+          title: 2b — Forecast-driven dispatch
 site:
   options:
     folders: true

@@ -147,3 +147,32 @@ stages:
       hash: md5
       md5: 3eb9d939bc0c0551155ae2fb3540ae6d
       size: 132084
+  forecast_dispatch:
+    cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
+      python3 --output book/notebooks/06_forecast_dispatch.ipynb pipeline/06_forecast_dispatch.py\n\
+      uv run python -c \"import nbformat; nb = nbformat.read('book/notebooks/06_forecast_dispatch.ipynb',
+      as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw'
+      and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/06_forecast_dispatch.ipynb')\"\
+      \n"
+    deps:
+    - path: data/downloads/smard/prices_de_lu.parquet
+      hash: md5
+      md5: f1886a2b97cd6a365960541adb2098fa
+      size: 828689
+    - path: pipeline/06_forecast_dispatch.py
+      hash: md5
+      md5: 789417891d293b92d6e4c080973690e8
+      size: 10726
+    outs:
+    - path: book/notebooks/06_forecast_dispatch.ipynb
+      hash: md5
+      md5: a09f411e2c043cab17a532d7cc49182d
+      size: 141745
+    - path: output/images/06_annual_revenue_comparison.png
+      hash: md5
+      md5: c16625b211e9943d06612683ed962f74
+      size: 108520
+    - path: output/images/06_forecast_dispatch_detail.png
+      hash: md5
+      md5: ed46496c0a2deb6cbcc7be67934f5245
+      size: 126952
