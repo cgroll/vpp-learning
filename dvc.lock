@@ -70,13 +70,13 @@ stages:
       size: 828689
     - path: pipeline/03_battery_dispatch_realistic.py
       hash: md5
-      md5: bf8cf4acbf2565f4946f88be68eed168
-      size: 26359
+      md5: 539084badcdc6661463b4d2c38950a70
+      size: 26735
     outs:
     - path: book/notebooks/03_battery_dispatch_realistic.ipynb
       hash: md5
-      md5: 5c9c96edc7bb3b9a2e2b6dd6ae63bd41
-      size: 47802
+      md5: 5bf935f3378ea19abbfca9ef4f66aa66
+      size: 48710
     - path: output/images/03_degradation_sensitivity.png
       hash: md5
       md5: e0beef231b320493d859c8f1c85be5cc
@@ -107,13 +107,13 @@ stages:
       size: 828689
     - path: pipeline/04_simultaneous_dispatch.py
       hash: md5
-      md5: b62c39f9873be7d4e01b0322213e6142
-      size: 16298
+      md5: 084f7a80cb3f2dbc040eac093c8352fb
+      size: 16501
     outs:
     - path: book/notebooks/04_simultaneous_dispatch.ipynb
       hash: md5
-      md5: 859cd3443a41047937cd8a799d13a687
-      size: 26543
+      md5: 6b8cb6e87a5700506cfc5f873b4b0831
+      size: 27017
     - path: output/images/04_simultaneous_cd_analysis.png
       hash: md5
       md5: 6693cde43ff9353ee42bc3c89ad23e03
