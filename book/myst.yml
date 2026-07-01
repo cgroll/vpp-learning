@@ -1,8 +1,8 @@
 version: 1
 project:
-  title: Vpp Learning
+  title: VPP Learning
   authors:
-    - name: Your Name
+    - name: Christian Groll
   copyright: '2026'
   exclude:
     - _build
@@ -12,9 +12,8 @@ project:
   github: cgroll/vpp-learning
   toc:
     - file: markdown/index.md
-    - title: Analysis
-      children:
-        - file: notebooks/02_analyse_example.ipynb
+    - title: Enefit — Prosumer Forecasting
+      children: []
 site:
   options:
     folders: true

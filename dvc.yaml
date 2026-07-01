@@ -1,0 +1,36 @@
+stages:
+  download_smard_prices:
+    cmd: uv run python pipeline/01_download_smard_prices.py
+    outs:
+      - data/downloads/smard/prices_de_lu.parquet
+
+# Stages are added here as pipeline scripts are written.
+#
+# Pattern for download stages:
+#
+#   download_enefit:
+#     cmd: uv run python pipeline/01_download_enefit.py
+#     outs:
+#       - data/downloads/enefit/
+#
+# Pattern for analysis stages (jupytext → notebook):
+#
+#   eda_enefit:
+#     cmd: >
+#       MPLBACKEND=Agg uv run jupytext --to notebook --execute
+#         --set-kernel python3
+#         --output book/notebooks/02_eda_enefit.ipynb pipeline/02_eda_enefit.py &&
+#       uv run python -c "
+#       import nbformat
+#       nb = nbformat.read('book/notebooks/02_eda_enefit.ipynb', as_version=4)
+#       nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]
+#       nbformat.write(nb, 'book/notebooks/02_eda_enefit.ipynb')
+#       "
+#     deps:
+#       - pipeline/02_eda_enefit.py
+#       - data/downloads/enefit/
+#     outs:
+#       - book/notebooks/02_eda_enefit.ipynb:
+#           cache: false
+#       - output/images/02_enefit_overview.png:
+#           cache: false

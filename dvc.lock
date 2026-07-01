@@ -1,0 +1,9 @@
+schema: '2.0'
+stages:
+  download_smard_prices:
+    cmd: uv run python pipeline/01_download_smard_prices.py
+    outs:
+    - path: data/downloads/smard/prices_de_lu.parquet
+      hash: md5
+      md5: f1886a2b97cd6a365960541adb2098fa
+      size: 828689

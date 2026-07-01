@@ -14,11 +14,14 @@ build/
 .Python
 env/
 
-# Data (managed by Snakemake, not git)
+# Data (managed by DVC, not git)
 data/downloads/*
 data/processed/*
 !data/downloads/.gitkeep
 !data/processed/.gitkeep
+
+# DVC
+/tmp/
 
 # Secrets
 .env
@@ -29,3 +32,6 @@ Thumbs.db
 
 # IDE
 .vscode/settings.json
+
+# Claude Code session memory (stored in ~/.claude/projects/, not the repo)
+memory/

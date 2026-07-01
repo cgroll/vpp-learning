@@ -17,7 +17,7 @@ class ProjPaths:
 
     def __init__(self):
         self._pkg_path = Path(__file__).resolve().parent  # pkg/
-        self._project_path = self._pkg_path.parent        # project root
+        self._project_path = self._pkg_path.parent  # project root
 
     # ------------------------------------------------------------------ #
     # Top-level directories                                                #
@@ -77,18 +77,18 @@ class ProjPaths:
         return self.output_path / "reports"
 
     # ------------------------------------------------------------------ #
-    # Example data files — replace with project-specific paths            #
+    # SMARD data files                                                     #
     # ------------------------------------------------------------------ #
 
     @property
-    def example_raw_file(self) -> Path:
-        """Raw example dataset (parquet)."""
-        return self.downloads_path / "example_data.parquet"
+    def smard_downloads_path(self) -> Path:
+        """Directory for all SMARD raw downloads."""
+        return self.downloads_path / "smard"
 
     @property
-    def example_processed_file(self) -> Path:
-        """Processed example dataset (parquet)."""
-        return self.processed_data_path / "example_processed.parquet"
+    def smard_prices_file(self) -> Path:
+        """DE-LU day-ahead electricity prices, hourly (EUR/MWh)."""
+        return self.smard_downloads_path / "prices_de_lu.parquet"
 
     # ------------------------------------------------------------------ #
     # Helpers                                                              #
@@ -98,6 +98,7 @@ class ProjPaths:
         """Create all standard directories if they do not yet exist."""
         dirs = [
             self.downloads_path,
+            self.smard_downloads_path,
             self.processed_data_path,
             self.images_path,
             self.reports_path,
