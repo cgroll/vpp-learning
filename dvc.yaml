@@ -23,6 +23,12 @@ stages:
           cache: false
       - output/images/02_soc_trajectory.png:
           cache: false
+      - output/images/02_negative_price_breakdown.png:
+          cache: false
+      - output/images/02_annual_revenue_table.png:
+          cache: false
+      - output/images/02_irr_analysis.png:
+          cache: false
 
 # Stages are added here as pipeline scripts are written.
 #

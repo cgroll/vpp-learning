@@ -88,6 +88,11 @@ Ideal LP dispatch (100 kWh / 50 kW, η=1, PuLP/CBC):
 - Daily-reset constraint costs only −0.9% vs free horizon (4,205 vs 4,244 EUR/year annualized)
 - Diurnal pattern: charge overnight 0–6h, discharge into 8–10h and 18–20h peaks
 - 2022 energy crisis produces ~3–5× the long-run average daily revenue
+- ~17% of total revenue comes from negative-price charging (getting paid to charge);
+  share rising post-2022 with renewable expansion
+- Investment economics: pure DA arbitrage does not clear an 8% hurdle at any realistic
+  CAPEX (IRR: +6.2% optimistic incl. 2022 → −7.2% conservative excl. 2022; base case IRR ≈ −1%)
+  → revenue stacking (FCR/aFRR) required to justify the investment
 
 ## Next steps
 

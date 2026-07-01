@@ -1899,15 +1899,15 @@ wheels = [
 
 [[package]]
 name = "mystmd"
-version = "1.9.0"
+version = "1.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "nodeenv" },
     { name = "platformdirs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/40/8f2a7816ddf649671068f6f9f54d813885dee08517b7369dbeb6ca08b487/mystmd-1.9.0.tar.gz", hash = "sha256:bdae4af2966b4e6f20bb8bbb507b3146d340c3ee451ab452cd0982f383588a65", size = 2979307, upload-time = "2026-05-01T15:37:42.733Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/6e/117ae46e81709d74f8ca8fc444511d6f11cad5a01555618dad0beb905d81/mystmd-1.10.1.tar.gz", hash = "sha256:40b24f20f3c6b77b5292aac4a1b2f89c1915848dd796bb9f2c1d2af71622fc99", size = 2981748, upload-time = "2026-06-05T17:07:02.098Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8a/b0/8d7d1b94daaafe0f798709aed795167fb9c1b0099e2b758645914e010697/mystmd-1.9.0-py3-none-any.whl", hash = "sha256:aed6254d93664543956343d30e215757c7a4d1ce6b5e23fba872607c3d2b1ee0", size = 3011013, upload-time = "2026-05-01T15:37:40.682Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/16/b71308f641c431936964459df6cdd4b941f8f4a42e9b53f1c8b249cd27e9/mystmd-1.10.1-py3-none-any.whl", hash = "sha256:353bac72edea3dd9335efcf5ec72f95f40509a46026e248b75a96cd373398054", size = 3013401, upload-time = "2026-06-05T17:06:59.902Z" },
 ]
 
 [[package]]
@@ -3633,7 +3633,7 @@ requires-dist = [
     { name = "jupytext", specifier = ">=1.19.0" },
     { name = "lightgbm", specifier = ">=4.5.0" },
     { name = "matplotlib", specifier = ">=3.9.0" },
-    { name = "mystmd", specifier = ">=1.8.0" },
+    { name = "mystmd", specifier = ">=1.10.1" },
     { name = "nbconvert", specifier = ">=7.17.1" },
     { name = "nbformat", specifier = ">=5.10.0" },
     { name = "numpy", specifier = ">=2.0.0" },

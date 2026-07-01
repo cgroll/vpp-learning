@@ -516,3 +516,437 @@ plt.show()
 # visible during periods of highly variable multi-day prices (e.g. the 2022
 # energy crisis).
 # ```
+
+# %% [markdown]
+# ## 9. Revenue from Negative Prices
+#
+# When day-ahead prices go negative the LP charges the battery — effectively
+# getting paid to consume electricity. This section quantifies how much of the
+# total arbitrage revenue comes from these negative-price events versus
+# conventional spread arbitrage (buy cheap, sell expensive).
+
+# %%
+NEG_PRICE_COLOR = "#9b59b6"
+
+dr_hourly = schedule[schedule["scenario"] == "daily_reset"].copy()
+dr_hourly["year"] = pd.to_datetime(dr_hourly["datetime"]).dt.year
+
+# Revenue contribution during negative-price hours (charging = positive revenue)
+dr_hourly["neg_price_rev"] = np.where(
+    dr_hourly["price_eur_mwh"] < 0,
+    dr_hourly["revenue_eur"],
+    0.0,
+)
+dr_hourly["pos_price_rev"] = np.where(
+    dr_hourly["price_eur_mwh"] >= 0,
+    dr_hourly["revenue_eur"],
+    0.0,
+)
+
+total_rev_all = dr_hourly["revenue_eur"].sum()
+neg_rev_all = dr_hourly["neg_price_rev"].sum()
+neg_hours = int((dr_hourly["price_eur_mwh"] < 0).sum())
+
+print(f"Total revenue (daily_reset):              {total_rev_all:>10,.0f} EUR")
+print(
+    f"  from negative-price hours:              {neg_rev_all:>10,.0f} EUR  "
+    f"({neg_rev_all / total_rev_all * 100:.1f}% of total)"
+)
+pos_rev_all = total_rev_all - neg_rev_all
+print(
+    f"  from positive-price hours:              {pos_rev_all:>10,.0f} EUR  "
+    f"({pos_rev_all / total_rev_all * 100:.1f}% of total)"
+)
+print(
+    f"Negative-price hours: {neg_hours:,} "
+    f"({neg_hours / len(dr_hourly) * 100:.1f}% of all hours)"
+)
+
+# %%
+yearly_neg = (
+    dr_hourly.groupby("year")
+    .agg(
+        total_rev=("revenue_eur", "sum"),
+        neg_price_rev=("neg_price_rev", "sum"),
+        pos_price_rev=("pos_price_rev", "sum"),
+        neg_hours=("price_eur_mwh", lambda x: (x < 0).sum()),
+    )
+    .reset_index()
+)
+yearly_neg["neg_price_pct"] = (
+    yearly_neg["neg_price_rev"] / yearly_neg["total_rev"] * 100
+)
+
+print("\nNegative-price revenue by year:")
+print(
+    yearly_neg[["year", "total_rev", "neg_price_rev", "neg_price_pct", "neg_hours"]]
+    .rename(
+        columns={
+            "total_rev": "Total (EUR)",
+            "neg_price_rev": "Neg-price (EUR)",
+            "neg_price_pct": "Neg-price (%)",
+            "neg_hours": "Neg-price hours",
+        }
+    )
+    .to_string(index=False, float_format="{:,.1f}".format)
+)
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
+
+years = yearly_neg["year"].astype(str)
+x = np.arange(len(years))
+
+# Stacked bar: pos-price vs neg-price revenue
+axes[0].bar(
+    x, yearly_neg["pos_price_rev"], label="Positive-price arbitrage", color=CHARGE_COLOR
+)
+axes[0].bar(
+    x,
+    yearly_neg["neg_price_rev"],
+    bottom=yearly_neg["pos_price_rev"],
+    label="Negative-price charging",
+    color=NEG_PRICE_COLOR,
+)
+axes[0].set_xticks(x)
+axes[0].set_xticklabels(years)
+axes[0].set_ylabel("Annual revenue (EUR)")
+axes[0].set_title("Revenue by source")
+axes[0].legend(fontsize=8)
+
+# % of total from negative prices
+axes[1].bar(x, yearly_neg["neg_price_pct"], color=NEG_PRICE_COLOR)
+avg_pct = yearly_neg["neg_price_pct"].mean()
+axes[1].axhline(
+    avg_pct,
+    color="gray",
+    linestyle="--",
+    linewidth=0.9,
+    label=f"Avg {avg_pct:.1f}%",
+)
+axes[1].set_xticks(x)
+axes[1].set_xticklabels(years)
+axes[1].set_ylabel("Share of total revenue (%)")
+axes[1].set_title("Negative-price charging as % of annual revenue")
+axes[1].legend(fontsize=8)
+
+fig.tight_layout()
+fig.savefig(
+    paths.images_path / "02_negative_price_breakdown.png", dpi=150, bbox_inches="tight"
+)
+plt.show()
+
+# %% [markdown]
+# ```{figure} ../../output/images/02_negative_price_breakdown.png
+# :name: fig-02-negative-price-breakdown
+# Left: annual revenue stacked by source — positive-price spread arbitrage
+# (buy low, sell high) vs negative-price charging (getting paid to consume).
+# Right: the negative-price component as a percentage of total annual revenue.
+# The share spikes in years with frequent solar-driven negative-price events
+# and post-2022 renewable expansion.
+# ```
+
+# %% [markdown]
+# ## 10. Annual Revenue Table
+
+# %%
+dr_daily_dr = daily[daily["scenario"] == "daily_reset"].copy()
+annual_table = (
+    dr_daily_dr.groupby("year")
+    .agg(
+        n_days=("revenue_eur", "count"),
+        total_revenue_eur=("revenue_eur", "sum"),
+        avg_daily_revenue_eur=("revenue_eur", "mean"),
+        avg_daily_cycles=("cycles", "mean"),
+    )
+    .reset_index()
+)
+annual_table["avg_annual_cycles"] = annual_table["avg_daily_cycles"] * 365.25
+annual_table["full_year"] = annual_table["n_days"] >= 360
+
+print("Annual revenue — daily_reset (100 kWh / 50 kW, η=1):")
+print(
+    annual_table[
+        [
+            "year",
+            "n_days",
+            "total_revenue_eur",
+            "avg_daily_revenue_eur",
+            "avg_annual_cycles",
+        ]
+    ]
+    .rename(
+        columns={
+            "n_days": "Days",
+            "total_revenue_eur": "Revenue (EUR)",
+            "avg_daily_revenue_eur": "Avg daily (EUR)",
+            "avg_annual_cycles": "Est. annual cycles",
+        }
+    )
+    .to_string(index=False, float_format="{:.1f}".format)
+)
+
+# %%
+fig, ax = plt.subplots(figsize=(10, 4.5))
+
+x = np.arange(len(annual_table))
+bar_colors = [CHARGE_COLOR if fy else "#aec7e8" for fy in annual_table["full_year"]]
+bars = ax.bar(x, annual_table["total_revenue_eur"], color=bar_colors, edgecolor="white")
+
+full_yr_avg = annual_table.loc[annual_table["full_year"], "total_revenue_eur"].mean()
+ax.axhline(
+    full_yr_avg,
+    color="gray",
+    linestyle="--",
+    linewidth=0.9,
+    label=f"Full-year avg {full_yr_avg:,.0f} EUR",
+)
+ax.set_xticks(x)
+ax.set_xticklabels(annual_table["year"])
+ax.set_ylabel("Annual revenue (EUR)")
+ax.set_title("Annual arbitrage revenue — daily_reset (100 kWh / 50 kW, η=1)")
+ax.legend(fontsize=8)
+for bar, rev, fy in zip(
+    bars, annual_table["total_revenue_eur"], annual_table["full_year"]
+):
+    suffix = "" if fy else "*"
+    ax.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + full_yr_avg * 0.01,
+        f"{rev:,.0f}{suffix}",
+        ha="center",
+        va="bottom",
+        fontsize=8,
+    )
+ax.text(0.01, 0.02, "* partial year", transform=ax.transAxes, fontsize=7, color="gray")
+
+fig.tight_layout()
+fig.savefig(
+    paths.images_path / "02_annual_revenue_table.png", dpi=150, bbox_inches="tight"
+)
+plt.show()
+
+# %% [markdown]
+# ```{figure} ../../output/images/02_annual_revenue_table.png
+# :name: fig-02-annual-revenue-table
+# Annual arbitrage revenue under the `daily_reset` constraint. Lighter bars
+# mark partial calendar years (2018, 2026). The 2022 energy crisis produced
+# revenues roughly 3–5× the long-run average due to exceptionally wide
+# day-ahead price spreads. The dashed line is the average across full years.
+# ```
+
+# %% [markdown]
+# ## 11. Battery Investment Economics & IRR
+#
+# How profitable is the battery as a capital investment?
+#
+# **Cost assumptions** (all-in, 2024 commercial Li-ion BESS):
+#
+# | Component | Unit cost | 100 kWh / 50 kW system |
+# |---|---|---|
+# | Storage (cells + BMS) | €200–400 / kWh | €20,000–40,000 |
+# | Power conversion (inverter) | €100–200 / kW | €5,000–10,000 |
+# | Installation + grid connection | — | €5,000–10,000 |
+# | **Total CAPEX** | **€300–600 / kWh** | **€30,000–60,000** |
+#
+# | Parameter | Value |
+# |---|---|
+# | O&M | 1.5 % of CAPEX / year |
+# | Project lifetime | 12 years (LFP capacity-retention horizon) |
+# | Salvage value | 0 EUR (conservative) |
+#
+# **Revenue projection**: full-calendar-year observed revenues for years
+# available; long-run average fills remaining years. Two variants:
+# *including* the 2022 outlier and *excluding* it.
+
+# %%
+HURDLE_RATE = 0.08
+PROJECT_LIFETIME = 12
+OAM_RATE = 0.015
+
+capex_scenarios = {
+    "Optimistic (€300/kWh)": 300.0 * CAPACITY_KWH,
+    "Base case (€450/kWh)": 450.0 * CAPACITY_KWH,
+    "Conservative (€600/kWh)": 600.0 * CAPACITY_KWH,
+}
+
+full_year_rows = annual_table[annual_table["full_year"]]
+full_year_rev = full_year_rows["total_revenue_eur"].values
+full_year_labels = full_year_rows["year"].values
+
+lr_avg_incl = float(full_year_rev.mean())
+lr_avg_excl = float(
+    full_year_rows.loc[full_year_rows["year"] != 2022, "total_revenue_eur"].mean()
+)
+
+print(f"Full years: {full_year_labels}")
+print(f"Long-run average (incl. 2022): {lr_avg_incl:,.0f} EUR/yr")
+print(f"Long-run average (excl. 2022): {lr_avg_excl:,.0f} EUR/yr")
+
+
+# %%
+def _compute_irr(
+    cash_flows: np.ndarray, tol: float = 1e-8, max_iter: int = 300
+) -> float:
+    """IRR by bisection: find rate where NPV = 0."""
+    t = np.arange(len(cash_flows), dtype=float)
+
+    def npv(r: float) -> float:
+        return float(np.sum(cash_flows / (1.0 + r) ** t))
+
+    lo, hi = -0.999, 20.0
+    if npv(lo) * npv(hi) > 0:
+        return np.nan
+    for _ in range(max_iter):
+        mid = (lo + hi) / 2.0
+        if npv(mid) > 0:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < tol:
+            break
+    return (lo + hi) / 2.0
+
+
+def _build_cash_flows(
+    capex: float,
+    oam_rate: float,
+    lifetime: int,
+    observed: np.ndarray,
+    long_run_avg: float,
+) -> np.ndarray:
+    annual_oam = capex * oam_rate
+    rev = list(observed) + [long_run_avg] * max(0, lifetime - len(observed))
+    net = [r - annual_oam for r in rev[:lifetime]]
+    return np.array([-capex] + net)
+
+
+def _simple_payback(cash_flows: np.ndarray, capex: float) -> float:
+    """Years until cumulative net revenues recover CAPEX."""
+    cumnet = np.cumsum(cash_flows[1:])
+    if cumnet[-1] < capex:
+        return np.nan
+    idx = int(np.argmax(cumnet >= capex))
+    prev = cumnet[idx - 1] if idx > 0 else 0.0
+    frac = (capex - prev) / (cumnet[idx] - prev)
+    return idx + frac
+
+
+# %%
+irr_results = {}
+for name, capex in capex_scenarios.items():
+    row = {}
+    for label, avg in [("incl. 2022", lr_avg_incl), ("excl. 2022", lr_avg_excl)]:
+        cf = _build_cash_flows(capex, OAM_RATE, PROJECT_LIFETIME, full_year_rev, avg)
+        irr = _compute_irr(cf)
+        pb = _simple_payback(cf, capex)
+        t = np.arange(len(cf), dtype=float)
+        npv_at_hurdle = float(np.sum(cf / (1 + HURDLE_RATE) ** t))
+        row[label] = {"irr": irr, "payback": pb, "npv_hurdle": npv_at_hurdle}
+    irr_results[name] = row
+
+oam_pct = OAM_RATE * 100
+print(
+    f"\nBattery investment economics"
+    f"  (lifetime={PROJECT_LIFETIME} yr, O&M={oam_pct:.1f}% CAPEX/yr)"
+)
+col_hdr = f"{'Scenario':<32} {'CAPEX':>8}  {'Variant':<13}"
+col_hdr += f" {'IRR':>7}  {'Payback':>9}  {'NPV@8% (EUR)':>13}"
+print(col_hdr)
+print("-" * 90)
+for name, capex in capex_scenarios.items():
+    for label in ("incl. 2022", "excl. 2022"):
+        r = irr_results[name][label]
+        irr_str = f"{r['irr'] * 100:.1f}%" if not np.isnan(r["irr"]) else "N/A"
+        pb_str = f"{r['payback']:.1f} yr" if not np.isnan(r["payback"]) else ">15 yr"
+        prefix = f"{name:<32} {capex:>8,.0f}" if label == "incl. 2022" else " " * 41
+        npv_str = f"{r['npv_hurdle']:>13,.0f}"
+        print(f"{prefix}  {label:<13} {irr_str:>7}  {pb_str:>9}  {npv_str}")
+
+# %%
+fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
+
+# Left: NPV profile (incl. 2022 variant only, for readability)
+rates = np.linspace(-0.02, 0.60, 300)
+cmap_colors = ["#2ca02c", "#1f77b4", "#d62728"]
+for (name, capex), col in zip(capex_scenarios.items(), cmap_colors):
+    cf = _build_cash_flows(
+        capex, OAM_RATE, PROJECT_LIFETIME, full_year_rev, lr_avg_incl
+    )
+    t = np.arange(len(cf), dtype=float)
+    npvs = [float(np.sum(cf / (1 + r) ** t)) for r in rates]
+    irr = irr_results[name]["incl. 2022"]["irr"]
+    axes[0].plot(
+        rates * 100, npvs, color=col, linewidth=1.5, label=name.split("(")[0].strip()
+    )
+    if not np.isnan(irr):
+        axes[0].axvline(irr * 100, color=col, linestyle=":", linewidth=0.9, alpha=0.7)
+axes[0].axhline(0, color="black", linewidth=0.7)
+axes[0].axvline(
+    HURDLE_RATE * 100,
+    color="gray",
+    linestyle="--",
+    linewidth=0.9,
+    label=f"{HURDLE_RATE * 100:.0f}% hurdle",
+)
+axes[0].set_xlabel("Discount rate (%)")
+axes[0].set_ylabel("NPV (EUR)")
+axes[0].set_title(f"NPV profile — {PROJECT_LIFETIME}-yr project (incl. 2022)")
+axes[0].legend(fontsize=8)
+axes[0].grid(True, alpha=0.4)
+
+# Right: IRR bar chart comparing both revenue variants
+bar_labels = [n.split("(")[0].strip() for n in capex_scenarios]
+x = np.arange(len(bar_labels))
+w = 0.38
+for i, (variant, col) in enumerate(
+    [("incl. 2022", "#1f77b4"), ("excl. 2022", "#ff7f0e")]
+):
+    irrs = [irr_results[name][variant]["irr"] * 100 for name in capex_scenarios]
+    offset = (i - 0.5) * w
+    bars = axes[1].bar(
+        x + offset,
+        irrs,
+        width=w,
+        color=col,
+        alpha=0.85,
+        label=f"Revenue {variant}",
+        edgecolor="white",
+    )
+    for bar, v in zip(bars, irrs):
+        axes[1].text(
+            bar.get_x() + bar.get_width() / 2,
+            v + 0.3,
+            f"{v:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=7.5,
+        )
+axes[1].axhline(
+    HURDLE_RATE * 100,
+    color="gray",
+    linestyle="--",
+    linewidth=0.9,
+    label=f"{HURDLE_RATE * 100:.0f}% hurdle rate",
+)
+axes[1].set_xticks(x)
+axes[1].set_xticklabels(bar_labels, fontsize=8.5)
+axes[1].set_ylabel("IRR (%)")
+axes[1].set_title(f"IRR by CAPEX scenario — {PROJECT_LIFETIME}-yr project")
+axes[1].legend(fontsize=8)
+axes[1].grid(True, alpha=0.3, axis="y")
+
+fig.tight_layout()
+fig.savefig(paths.images_path / "02_irr_analysis.png", dpi=150, bbox_inches="tight")
+plt.show()
+
+# %% [markdown]
+# ```{figure} ../../output/images/02_irr_analysis.png
+# :name: fig-02-irr-analysis
+# Left: NPV profile (NPV vs discount rate) for each CAPEX scenario using
+# observed annual revenues including the 2022 spike. Vertical dotted lines mark
+# each scenario's IRR; the dashed grey line is an 8 % hurdle rate. Right: IRR
+# for each CAPEX scenario under two revenue projections — including the
+# exceptional 2022 revenues (optimistic) and excluding them (conservative
+# long-run estimate).
+# ```

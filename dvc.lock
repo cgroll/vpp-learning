@@ -21,17 +21,21 @@ stages:
       size: 828689
     - path: pipeline/02_battery_dispatch_ideal.py
       hash: md5
-      md5: 97262a270a585844bcb95912544ca20f
-      size: 15278
+      md5: 8348caeed36139c36c111c2bd84312e3
+      size: 29661
     outs:
     - path: book/notebooks/02_battery_dispatch_ideal.ipynb
       hash: md5
-      md5: 79107824004381b2c71020d2ee173b7b
-      size: 26095
+      md5: 3aca9c0c842373583db83f537607435d
+      size: 53344
     - path: output/images/02_annual_revenue_comparison.png
       hash: md5
       md5: 17f88359447cd23317043a45ff1ba9ee
       size: 98176
+    - path: output/images/02_annual_revenue_table.png
+      hash: md5
+      md5: 7ccf24fc0e215fd432c525125f3c0671
+      size: 56825
     - path: output/images/02_daily_revenue_heatmap.png
       hash: md5
       md5: 15c56c3e8027d459bb990e8fa1f8e84b
@@ -40,6 +44,14 @@ stages:
       hash: md5
       md5: fc6e2df111473ef46d6549b221d103f6
       size: 118255
+    - path: output/images/02_irr_analysis.png
+      hash: md5
+      md5: 657e85f47f5254a70a89721e87aa5ab2
+      size: 127321
+    - path: output/images/02_negative_price_breakdown.png
+      hash: md5
+      md5: d1be0ac1b832afceda42b4c3017fd57c
+      size: 74720
     - path: output/images/02_soc_trajectory.png
       hash: md5
       md5: e6bbbdbba92b408d7a4031fd4351092f
