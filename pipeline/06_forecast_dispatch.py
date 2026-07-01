@@ -35,9 +35,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pulp
 import seaborn as sns
-from tqdm import tqdm
 
 from vpp.paths import ProjPaths
 
@@ -50,13 +48,12 @@ sns.set_theme(style="whitegrid")
 CAPACITY_KWH = 100.0
 POWER_KW = 50.0
 ETA_RT = 0.90
-ETA_C = ETA_D = float(np.sqrt(ETA_RT))
 
 HINDSIGHT_COLOR = "#2ca02c"
 FORECAST_COLOR = "#d62728"
 
 # %% [markdown]
-# ## 2. Load and Organise Prices by Day
+# ## 2. Load Data
 
 # %%
 prices_raw = pd.read_parquet(paths.smard_prices_file)
@@ -64,79 +61,52 @@ prices_eur_mwh = prices_raw["price_de_lu"].dropna().sort_index()
 prices_berlin = prices_eur_mwh.copy()
 prices_berlin.index = prices_berlin.index.tz_convert("Europe/Berlin")
 
-# Keep only 24-h days; DST days have 23h (spring-forward) or 25h (fall-back)
-price_by_date: dict = {}
-for date, grp in prices_berlin.groupby(prices_berlin.index.date):
-    if len(grp) == 24:
-        price_by_date[date] = grp.values
-
-dates = sorted(price_by_date.keys())
-n_skipped = len(set(prices_berlin.index.date)) - len(dates)
 print(
-    f"Loaded {len(prices_berlin):,} hours → "
-    f"{len(dates):,} complete 24h days "
-    f"({n_skipped} DST days skipped)"
+    f"Loaded {len(prices_berlin):,} hourly prices: "
+    f"{prices_berlin.index[0].date()} to {prices_berlin.index[-1].date()}"
 )
 
 # %% [markdown]
-# ## 3. Daily MILP Solver
-
-
-# %%
-def solve_daily_milp(
-    price_24h: np.ndarray,
-    capacity_kwh: float = CAPACITY_KWH,
-    power_kw: float = POWER_KW,
-    eta_c: float = ETA_C,
-    eta_d: float = ETA_D,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Solve daily MILP (η < 1, mutual exclusivity, SoC=0 start/end).
-
-    Returns (charge_kw, discharge_kw) for 24 hours.
-    """
-    prob = pulp.LpProblem("d", pulp.LpMaximize)
-    z = pulp.LpVariable.dicts("z", range(24), cat="Binary")
-    c = pulp.LpVariable.dicts("c", range(24), lowBound=0, upBound=power_kw)
-    d = pulp.LpVariable.dicts("d", range(24), lowBound=0, upBound=power_kw)
-    soc = pulp.LpVariable.dicts("s", range(25), lowBound=0, upBound=capacity_kwh)
-    prob += pulp.lpSum(price_24h[t] / 1000 * (d[t] - c[t]) for t in range(24))
-    prob += soc[0] == 0
-    prob += soc[24] == 0
-    for t in range(24):
-        prob += soc[t + 1] == soc[t] + eta_c * c[t] - (1.0 / eta_d) * d[t]
-        prob += c[t] <= power_kw * z[t]
-        prob += d[t] <= power_kw * (1 - z[t])
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
-    if pulp.LpStatus[status] != "Optimal":
-        raise RuntimeError(f"MILP infeasible: {pulp.LpStatus[status]!r}")
-    return (
-        np.array([c[t].value() for t in range(24)]),
-        np.array([d[t].value() for t in range(24)]),
-    )
-
-
-# %% [markdown]
-# ## 4. Run Hindsight and Forecast Dispatch
+# ## 3. Load Pre-computed Dispatch
 
 # %%
-# Day 0 has no prior day for a naïve forecast; evaluation starts from day 1.
-records = []
-for i, date in enumerate(tqdm(dates[1:], desc="Solving"), start=1):
-    actual = price_by_date[date]
-    forecast = price_by_date[dates[i - 1]]  # naïve: previous day's prices
+_SCENARIO_IDS = [
+    "actual__milp_dr__eta090__deg000",
+    "naive__milp_dr__eta090__deg000",
+]
 
-    c_h, d_h = solve_daily_milp(actual)  # hindsight: optimise with actual prices
-    c_f, d_f = solve_daily_milp(forecast)  # forecast: optimise with lag-24 prices
+dispatch_raw = pd.read_parquet(
+    paths.dispatch_schedules_file,
+    filters=[("scenario_id", "in", _SCENARIO_IDS)],
+)
 
-    records.append(
-        {
-            "date": pd.Timestamp(date),
-            "rev_hindsight": float(np.dot(actual, d_h - c_h) / 1000),
-            "rev_forecast": float(np.dot(actual, d_f - c_f) / 1000),
+prices_df = (
+    prices_berlin.rename("price_eur_mwh")
+    .reset_index()
+    .rename(columns={"index": "timestamp"})
+)
+dispatch_merged = dispatch_raw.merge(prices_df, on="timestamp")
+dispatch_merged["revenue_eur"] = (
+    dispatch_merged["price_eur_mwh"]
+    * (dispatch_merged["d"] - dispatch_merged["c"])
+    / 1000
+)
+dispatch_merged["date"] = pd.to_datetime(dispatch_merged["timestamp"].dt.date)
+
+daily_rev = (
+    dispatch_merged.groupby(["date", "scenario_id"])["revenue_eur"]
+    .sum()
+    .unstack("scenario_id")
+    .reset_index()
+    .rename(
+        columns={
+            "actual__milp_dr__eta090__deg000": "rev_hindsight",
+            "naive__milp_dr__eta090__deg000": "rev_forecast",
         }
     )
-
-daily = pd.DataFrame(records).set_index("date")
+    .dropna()
+)
+daily = daily_rev.set_index("date")
 daily.index = pd.DatetimeIndex(daily.index).tz_localize("Europe/Berlin")
 daily["gap"] = daily["rev_hindsight"] - daily["rev_forecast"]
 daily["year"] = daily.index.year
@@ -149,10 +119,10 @@ eff = rev_f_ann / rev_h_ann * 100
 
 print(
     f"\nAnnualised over {n_days:,} days "
-    f"({daily.index[0].date()} → {daily.index[-1].date()}):"
+    f"({daily.index[0].date()} to {daily.index[-1].date()}):"
 )
 print(f"  Hindsight:       {rev_h_ann:,.0f} EUR/yr")
-print(f"  Naïve forecast:  {rev_f_ann:,.0f} EUR/yr  ({eff:.1f}% of hindsight)")
+print(f"  Naive forecast:  {rev_f_ann:,.0f} EUR/yr  ({eff:.1f}% of hindsight)")
 print(f"  Revenue gap:     {rev_h_ann - rev_f_ann:,.0f} EUR/yr  ({100 - eff:.1f}%)")
 
 neg_days = (daily["rev_forecast"] < 0).sum()
@@ -166,9 +136,9 @@ print(f"\n  Days with negative forecast revenue: {neg_days:,} ({neg_pct:.1f}%)")
 yearly = (
     daily.groupby("year")[["rev_hindsight", "rev_forecast"]]
     .agg(lambda s: s.sum() * 365.25 / len(s))
-    .rename(columns={"rev_hindsight": "Hindsight", "rev_forecast": "Naïve"})
+    .rename(columns={"rev_hindsight": "Hindsight", "rev_forecast": "Naive"})
 )
-yearly["Efficiency (%)"] = yearly["Naïve"] / yearly["Hindsight"] * 100
+yearly["Efficiency (%)"] = yearly["Naive"] / yearly["Hindsight"] * 100
 
 print("\nAnnual revenue by year (annualised EUR/yr):")
 print(yearly.round(1).to_string())
@@ -189,10 +159,10 @@ ax.bar(
 )
 ax.bar(
     x + w / 2,
-    yearly["Naïve"],
+    yearly["Naive"],
     width=w,
     color=FORECAST_COLOR,
-    label="Naïve (lag-24)",
+    label="Naive (lag-24)",
 )
 ax.set_xticks(x)
 ax.set_xticklabels(yearly.index)
@@ -220,13 +190,13 @@ for bar, val in zip(bars, yearly["Efficiency (%)"]):
     )
 ax.set_xticks(x)
 ax.set_xticklabels(yearly.index)
-ax.set_ylabel("Naïve / hindsight (%)")
+ax.set_ylabel("Naive / hindsight (%)")
 ax.set_title("Forecast efficiency by year")
 ax.set_ylim(0, 130)
 ax.legend()
 
 fig.suptitle(
-    f"Hindsight vs naïve forecast dispatch  (η_rt={ETA_RT}, MILP, 100 kWh / 50 kW)",
+    f"Hindsight vs naive forecast dispatch  (eta_rt={ETA_RT}, MILP, 100 kWh / 50 kW)",
     fontsize=12,
 )
 fig.tight_layout()
@@ -240,8 +210,8 @@ plt.show()
 # %% [markdown]
 # ```{figure} ../../output/images/06_annual_revenue_comparison.png
 # :name: fig-06-annual-revenue-comparison
-# Left: annualised revenue by year for hindsight and naïve forecast dispatch.
-# Right: forecast efficiency (naïve / hindsight) by year; the overall mean is
+# Left: annualised revenue by year for hindsight and naive forecast dispatch.
+# Right: forecast efficiency (naive / hindsight) by year; the overall mean is
 # shown as a dashed line. The 2022 energy crisis year stands out in both panels.
 # ```
 
@@ -282,7 +252,7 @@ ax.set_ylabel("Forecast revenue (EUR/day)")
 ax.set_title("Daily revenue: forecast vs hindsight")
 ax.legend(fontsize=7, ncol=2)
 
-# Right: histogram of daily revenue gap (hindsight − forecast)
+# Right: histogram of daily revenue gap (hindsight - forecast)
 ax = axes[1]
 gap_mean = daily["gap"].mean()
 ax.hist(daily["gap"], bins=60, color=FORECAST_COLOR, alpha=0.75, edgecolor="none")
@@ -293,11 +263,11 @@ ax.text(
     f"Mean gap: {gap_mean:.2f} EUR/day",
     fontsize=9,
 )
-ax.set_xlabel("Hindsight − forecast revenue (EUR/day)")
+ax.set_xlabel("Hindsight - forecast revenue (EUR/day)")
 ax.set_ylabel("Days")
 ax.set_title("Distribution of daily revenue gap")
 
-fig.suptitle("Daily dispatch detail — naïve vs hindsight", fontsize=12)
+fig.suptitle("Daily dispatch detail — naive vs hindsight", fontsize=12)
 fig.tight_layout()
 fig.savefig(
     paths.images_path / "06_forecast_dispatch_detail.png",
@@ -310,9 +280,9 @@ plt.show()
 # ```{figure} ../../output/images/06_forecast_dispatch_detail.png
 # :name: fig-06-forecast-dispatch-detail
 # Left: daily revenue scatter — each point is one day. Points below the diagonal
-# indicate days where the naïve forecast under-performed hindsight; points above
+# indicate days where the naive forecast under-performed hindsight; points above
 # the x-axis but below the diagonal represent the typical partially-captured day;
-# points below the x-axis are days where the naïve dispatch lost money.
+# points below the x-axis are days where the naive dispatch lost money.
 # Right: distribution of the daily revenue gap (hindsight − forecast). The mean
 # gap equals the average daily value of perfect price foresight.
 # ```
@@ -320,18 +290,18 @@ plt.show()
 # %% [markdown]
 # ## 7. Summary
 #
-# The naïve lag-24 dispatch captures a significant fraction of the hindsight
+# The naive lag-24 dispatch captures a significant fraction of the hindsight
 # upper bound, but the gap measures the cost of not knowing tomorrow's prices.
 #
 # Key findings:
 #
-# - **Overall efficiency**: naïve captures ~X% of the perfect-foresight revenue.
+# - **Overall efficiency**: naive captures ~X% of the perfect-foresight revenue.
 # - **2022 crisis effect**: the energy crisis year typically shows either very
 #   high absolute revenue (large spreads to exploit) or reduced efficiency (if
 #   price patterns changed dramatically day-over-day, making lag-24 unreliable).
-# - **Negative-revenue days**: a fraction of days see the naïve strategy actively
+# - **Negative-revenue days**: a fraction of days see the naive strategy actively
 #   lose money — the previous day's prices suggested a spread that inverted.
-# - **Foresight value**: the gap (hindsight − naïve) is the upper bound on what
+# - **Foresight value**: the gap (hindsight − naive) is the upper bound on what
 #   any forecast improvement can recover. Closing even half of it would materially
 #   change the investment case.
 #

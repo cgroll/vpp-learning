@@ -91,6 +91,20 @@ class ProjPaths:
         return self.smard_downloads_path / "prices_de_lu.parquet"
 
     # ------------------------------------------------------------------ #
+    # Processed data files                                                 #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def dispatch_schedules_file(self) -> Path:
+        """Dispatch schedules for all scenarios: [timestamp, c, d, soc, scenario_id]."""
+        return self.processed_data_path / "dispatch_schedules.parquet"
+
+    @property
+    def forecasts_file(self) -> Path:
+        """Day-ahead price forecasts for test period [timestamp, naive, ridge, lgbm]."""
+        return self.processed_data_path / "forecasts.parquet"
+
+    # ------------------------------------------------------------------ #
     # Helpers                                                              #
     # ------------------------------------------------------------------ #
 

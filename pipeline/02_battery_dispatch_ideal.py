@@ -53,7 +53,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pulp
 import seaborn as sns
 
 from vpp.paths import ProjPaths
@@ -72,6 +71,15 @@ DISCHARGE_COLOR = "#d62728"
 SOC_COLOR = "#2ca02c"
 SCENARIO_COLORS = {"daily_reset": "#1f77b4", "free_horizon": "#ff7f0e"}
 
+_SCENARIO_IDS = [
+    "actual__lp_dr__eta100__deg000",
+    "actual__lp_fh__eta100__deg000",
+]
+_SCENARIO_NAME = {
+    "actual__lp_dr__eta100__deg000": "daily_reset",
+    "actual__lp_fh__eta100__deg000": "free_horizon",
+}
+
 # %% [markdown]
 # ## 2. Load Data
 
@@ -79,7 +87,6 @@ SCENARIO_COLORS = {"daily_reset": "#1f77b4", "free_horizon": "#ff7f0e"}
 prices_raw = pd.read_parquet(paths.smard_prices_file)
 prices_eur_mwh = prices_raw["price_de_lu"].dropna().sort_index()
 
-# Convert to Berlin local time for calendar-day boundary detection
 prices_berlin = prices_eur_mwh.copy()
 prices_berlin.index = prices_berlin.index.tz_convert("Europe/Berlin")
 
@@ -92,110 +99,29 @@ print(
 )
 
 # %% [markdown]
-# ## 3. Solve LP
-
-
-# %%
-def _day_boundary_positions(index: pd.DatetimeIndex) -> list[int]:
-    """Integer positions (0..n) where SoC must be 0 under daily reset.
-
-    Returns the cumulative-length positions at each day boundary, including 0
-    and n, so both the start and end of each day are forced to SoC=0.
-    """
-    dates = index.date
-    lengths = [int((np.array(dates) == d).sum()) for d in sorted(set(dates))]
-    boundaries = np.concatenate([[0], np.cumsum(lengths)]).tolist()
-    return [int(b) for b in boundaries]
-
-
-def solve_battery_lp(
-    price_array: np.ndarray,
-    soc_zero_positions: list[int],
-    capacity_kwh: float = CAPACITY_KWH,
-    power_kw: float = POWER_KW,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Solve net-power LP with explicit SoC state variables.
-
-    Uses explicit SoC variables (O(n) sparse constraints) rather than the
-    cumulative-sum trick (which produces O(n²) expression sizes for large n).
-
-    soc_zero_positions: positions in 0..n where SoC is forced to 0.
-      daily_reset → every day boundary (including 0 and n).
-      free_horizon → [0, n] only.
-
-    Returns (f_kw, soc_kwh) arrays of length n, where soc_kwh[t] is the
-    start-of-hour SoC (before hour t's dispatch).
-    """
-    n = len(price_array)
-    prob = pulp.LpProblem("battery_ideal", pulp.LpMaximize)
-
-    f = pulp.LpVariable.dicts("f", range(n), lowBound=-power_kw, upBound=power_kw)
-    soc = pulp.LpVariable.dicts("soc", range(n + 1), lowBound=0, upBound=capacity_kwh)
-
-    prob += pulp.lpSum(-price_array[t] * f[t] / 1000 for t in range(n))
-
-    for t in range(n):
-        prob += soc[t + 1] == soc[t] + f[t]
-
-    for pos in soc_zero_positions:
-        prob += soc[pos] == 0
-
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
-    if pulp.LpStatus[status] != "Optimal":
-        raise RuntimeError(f"LP status: {pulp.LpStatus[status]!r}")
-
-    f_val = np.array([f[t].value() for t in range(n)])
-    soc_val = np.array([soc[t].value() for t in range(n)])
-    return f_val, soc_val
-
+# ## 3. Load Pre-computed Dispatch
 
 # %%
-reset_daily = _day_boundary_positions(prices_berlin.index)
-reset_free = [0, n]
+dispatch_raw = pd.read_parquet(
+    paths.dispatch_schedules_file,
+    filters=[("scenario_id", "in", _SCENARIO_IDS)],
+)
+dispatch_raw["scenario"] = dispatch_raw["scenario_id"].map(_SCENARIO_NAME)
 
-print(f"Solving daily_reset LP ({len(reset_daily) - 1} days, {n:,} hours) ...")
-f_daily, soc_daily = solve_battery_lp(price_array, reset_daily)
-print("Done.")
+prices_df = (
+    prices_berlin.rename("price_eur_mwh")
+    .reset_index()
+    .rename(columns={"index": "timestamp"})
+)
+merged = dispatch_raw.merge(prices_df, on="timestamp")
+merged["revenue_eur"] = merged["price_eur_mwh"] * (merged["d"] - merged["c"]) / 1000
 
-print(f"Solving free_horizon LP ({n:,} hours, single period) ...")
-f_free, soc_free = solve_battery_lp(price_array, reset_free)
-print("Done.")
-
-
-# %%
-def _build_schedule(
-    index: pd.DatetimeIndex,
-    price_array: np.ndarray,
-    f_kw: np.ndarray,
-    soc_kwh: np.ndarray,
-    scenario: str,
-) -> pd.DataFrame:
-    f_clean = np.where(np.abs(f_kw) < 1e-9, 0.0, f_kw)
-    return pd.DataFrame(
-        {
-            "datetime": index,
-            "date": pd.to_datetime(index.date),
-            "hour": index.hour,
-            "price_eur_mwh": price_array,
-            "charge_kw": np.clip(f_clean, 0, None).round(6),
-            "discharge_kw": np.clip(-f_clean, 0, None).round(6),
-            "soc_kwh": np.clip(soc_kwh, 0, None).round(6),
-            "revenue_eur": -price_array * f_clean / 1000,
-            "scenario": scenario,
-        }
-    )
-
-
-schedule = pd.concat(
-    [
-        _build_schedule(
-            prices_berlin.index, price_array, f_daily, soc_daily, "daily_reset"
-        ),
-        _build_schedule(
-            prices_berlin.index, price_array, f_free, soc_free, "free_horizon"
-        ),
-    ],
-    ignore_index=True,
+schedule = merged.rename(
+    columns={"c": "charge_kw", "d": "discharge_kw", "soc": "soc_kwh"}
+).assign(
+    datetime=merged["timestamp"],
+    date=pd.to_datetime(merged["timestamp"].dt.date),
+    hour=merged["timestamp"].dt.hour,
 )
 schedule["scenario"] = schedule["scenario"].astype("category")
 

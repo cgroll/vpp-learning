@@ -26,6 +26,14 @@ project:
           title: 2a — Baseline price forecast
         - file: notebooks/06_forecast_dispatch.ipynb
           title: 2b — Forecast-driven dispatch
+    - title: Cross-Scenario Analysis
+      children:
+        - file: notebooks/09_dispatch_overview.ipynb
+          title: All-scenarios overview
+        - file: notebooks/10_constraint_comparison.ipynb
+          title: Daily reset vs free horizon
+        - file: notebooks/11_simultaneous_cd.ipynb
+          title: LP vs MILP vs LP+price floor
 site:
   options:
     folders: true

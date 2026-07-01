@@ -12,6 +12,7 @@ stages:
     deps:
       - pipeline/02_battery_dispatch_ideal.py
       - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
     outs:
       - book/notebooks/02_battery_dispatch_ideal.ipynb:
           cache: false
@@ -38,6 +39,7 @@ stages:
     deps:
       - pipeline/03_battery_dispatch_realistic.py
       - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
     outs:
       - book/notebooks/03_battery_dispatch_realistic.ipynb:
           cache: false
@@ -74,6 +76,7 @@ stages:
     deps:
       - pipeline/06_forecast_dispatch.py
       - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
     outs:
       - book/notebooks/06_forecast_dispatch.ipynb:
           cache: false
@@ -90,11 +93,81 @@ stages:
     deps:
       - pipeline/04_simultaneous_dispatch.py
       - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
     outs:
       - book/notebooks/04_simultaneous_dispatch.ipynb:
           cache: false
       - output/images/04_simultaneous_cd_analysis.png:
           cache: false
+
+  dispatch_overview:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/09_dispatch_overview.ipynb pipeline/09_dispatch_overview.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/09_dispatch_overview.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/09_dispatch_overview.ipynb')"
+    deps:
+      - pipeline/09_dispatch_overview.py
+      - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
+    outs:
+      - book/notebooks/09_dispatch_overview.ipynb:
+          cache: false
+      - output/images/09_dispatch_overview.png:
+          cache: false
+      - output/images/09_scenario_table.png:
+          cache: false
+
+  constraint_comparison:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/10_constraint_comparison.ipynb pipeline/10_constraint_comparison.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/10_constraint_comparison.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/10_constraint_comparison.ipynb')"
+    deps:
+      - pipeline/10_constraint_comparison.py
+      - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
+    outs:
+      - book/notebooks/10_constraint_comparison.ipynb:
+          cache: false
+      - output/images/10_constraint_comparison.png:
+          cache: false
+      - output/images/10_cycling_comparison.png:
+          cache: false
+
+  simultaneous_cd:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/11_simultaneous_cd.ipynb pipeline/11_simultaneous_cd.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/11_simultaneous_cd.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/11_simultaneous_cd.ipynb')"
+    deps:
+      - pipeline/11_simultaneous_cd.py
+      - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/dispatch_schedules.parquet
+    outs:
+      - book/notebooks/11_simultaneous_cd.ipynb:
+          cache: false
+      - output/images/11_simultaneous_cd.png:
+          cache: false
+
+  compute_forecasts:
+    cmd: uv run python pipeline/07_compute_forecasts.py
+    deps:
+      - pipeline/07_compute_forecasts.py
+      - data/downloads/smard/prices_de_lu.parquet
+    outs:
+      - data/processed/forecasts.parquet
+
+  compute_dispatch:
+    cmd: uv run python pipeline/08_compute_dispatch.py
+    deps:
+      - pipeline/08_compute_dispatch.py
+      - vpp/battery.py
+      - vpp/dispatch.py
+      - vpp/scenarios.py
+      - data/downloads/smard/prices_de_lu.parquet
+      - data/processed/forecasts.parquet
+    outs:
+      - data/processed/dispatch_schedules.parquet
 
 # Stages are added here as pipeline scripts are written.
 #

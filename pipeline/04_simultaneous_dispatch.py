@@ -51,7 +51,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pulp
 import seaborn as sns
 
 from vpp.paths import ProjPaths
@@ -84,99 +83,44 @@ n = len(price_array)
 
 print(
     f"Loaded {n:,} hourly prices: "
-    f"{prices_berlin.index[0].date()} → {prices_berlin.index[-1].date()}"
+    f"{prices_berlin.index[0].date()} to {prices_berlin.index[-1].date()}"
+)
+
+# %% [markdown]
+# ## 3. Load Pre-computed Dispatch
+
+# %%
+_SCENARIO_IDS_3 = [
+    "actual__lp_dr__eta090__deg000",
+    "actual__milp_dr__eta090__deg000",
+    "actual__lp_floor_dr__eta090__deg000",
+]
+
+dispatch_raw = pd.read_parquet(
+    paths.dispatch_schedules_file,
+    filters=[("scenario_id", "in", _SCENARIO_IDS_3)],
 )
 
 
-def _day_boundary_positions(index: pd.DatetimeIndex) -> list[int]:
-    dates = index.date
-    lengths = [int((np.array(dates) == d).sum()) for d in sorted(set(dates))]
-    return [int(b) for b in np.concatenate([[0], np.cumsum(lengths)]).tolist()]
+def _get_arrays(scenario_id: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    df = dispatch_raw[dispatch_raw["scenario_id"] == scenario_id].set_index("timestamp")
+    aligned = df.reindex(prices_berlin.index)
+    return (
+        aligned["c"].to_numpy(dtype=float).copy(),
+        aligned["d"].to_numpy(dtype=float).copy(),
+        aligned["soc"].to_numpy(dtype=float).copy(),
+    )
 
 
-reset_daily = _day_boundary_positions(prices_berlin.index)
+c_lp, d_lp, soc_lp = _get_arrays("actual__lp_dr__eta090__deg000")
+c_milp, d_milp, soc_milp = _get_arrays("actual__milp_dr__eta090__deg000")
+c_floor, d_floor, soc_floor = _get_arrays("actual__lp_floor_dr__eta090__deg000")
 
-# %% [markdown]
-# ## 3. LP Solvers
+n_days = dispatch_raw[dispatch_raw["scenario_id"] == "actual__lp_dr__eta090__deg000"][
+    "timestamp"
+].dt.date.nunique()
+ann = 365.25 / n_days
 
-
-# %%
-def _solve_lp(
-    price_array: np.ndarray,
-    soc_zero_positions: list[int],
-    capacity_kwh: float = CAPACITY_KWH,
-    power_kw: float = POWER_KW,
-    eta_c: float = ETA_C,
-    eta_d: float = ETA_D,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Standard LP — separate c/d, no complementarity constraint."""
-    n = len(price_array)
-    prob = pulp.LpProblem("battery_lp", pulp.LpMaximize)
-    c = pulp.LpVariable.dicts("c", range(n), lowBound=0, upBound=power_kw)
-    d = pulp.LpVariable.dicts("d", range(n), lowBound=0, upBound=power_kw)
-    soc = pulp.LpVariable.dicts("soc", range(n + 1), lowBound=0, upBound=capacity_kwh)
-    prob += pulp.lpSum(price_array[t] / 1000 * (d[t] - c[t]) for t in range(n))
-    for t in range(n):
-        prob += soc[t + 1] == soc[t] + eta_c * c[t] - (1.0 / eta_d) * d[t]
-    for pos in soc_zero_positions:
-        prob += soc[pos] == 0
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
-    if pulp.LpStatus[status] != "Optimal":
-        raise RuntimeError(f"LP status: {pulp.LpStatus[status]!r}")
-    c_val = np.array([c[t].value() for t in range(n)])
-    d_val = np.array([d[t].value() for t in range(n)])
-    soc_val = np.array([soc[t].value() for t in range(n)])
-    return c_val, d_val, soc_val
-
-
-def _solve_milp(
-    price_array: np.ndarray,
-    soc_zero_positions: list[int],
-    capacity_kwh: float = CAPACITY_KWH,
-    power_kw: float = POWER_KW,
-    eta_c: float = ETA_C,
-    eta_d: float = ETA_D,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """MILP with binary z[t] enforcing c[t]*d[t] = 0 (mutual exclusivity)."""
-    n = len(price_array)
-    prob = pulp.LpProblem("battery_milp", pulp.LpMaximize)
-    z = pulp.LpVariable.dicts("z", range(n), cat="Binary")
-    c = pulp.LpVariable.dicts("c", range(n), lowBound=0, upBound=power_kw)
-    d = pulp.LpVariable.dicts("d", range(n), lowBound=0, upBound=power_kw)
-    soc = pulp.LpVariable.dicts("soc", range(n + 1), lowBound=0, upBound=capacity_kwh)
-    prob += pulp.lpSum(price_array[t] / 1000 * (d[t] - c[t]) for t in range(n))
-    for t in range(n):
-        prob += soc[t + 1] == soc[t] + eta_c * c[t] - (1.0 / eta_d) * d[t]
-        prob += c[t] <= power_kw * z[t]
-        prob += d[t] <= power_kw * (1 - z[t])
-    for pos in soc_zero_positions:
-        prob += soc[pos] == 0
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
-    if pulp.LpStatus[status] != "Optimal":
-        raise RuntimeError(f"MILP status: {pulp.LpStatus[status]!r}")
-    c_val = np.array([c[t].value() for t in range(n)])
-    d_val = np.array([d[t].value() for t in range(n)])
-    soc_val = np.array([soc[t].value() for t in range(n)])
-    return c_val, d_val, soc_val
-
-
-# %% [markdown]
-# ## 4. Solve All Three Approaches
-
-# %%
-print("Solving LP (no complementarity constraint) …")
-c_lp, d_lp, soc_lp = _solve_lp(price_array, reset_daily)
-print("Done.")
-
-print("Solving MILP (binary mutual exclusivity) …")
-c_milp, d_milp, soc_milp = _solve_milp(price_array, reset_daily)
-print("Done.")
-
-print("Solving LP with price floor at 0 …")
-c_floor, d_floor, soc_floor = _solve_lp(np.maximum(price_array, 0.0), reset_daily)
-print("Done.")
-
-# Revenue computed against ORIGINAL prices for all approaches
 eps = 1e-9
 for arr in (c_lp, d_lp, c_milp, d_milp, c_floor, d_floor):
     arr[np.abs(arr) < eps] = 0.0
@@ -185,10 +129,7 @@ rev_lp = float(np.dot(price_array, d_lp - c_lp) / 1000)
 rev_milp = float(np.dot(price_array, d_milp - c_milp) / 1000)
 rev_floor = float(np.dot(price_array, d_floor - c_floor) / 1000)
 
-n_days = len(reset_daily) - 1
-ann = 365.25 / n_days
-
-print(f"\nAnnual revenue (η_rt={ETA_RT}, daily reset, 100 kWh / 50 kW):")
+print(f"\nAnnual revenue (eta_rt={ETA_RT}, daily reset, 100 kWh / 50 kW):")
 print(f"  LP (baseline):       {rev_lp * ann:,.0f} EUR/yr")
 print(f"  MILP (correct):      {rev_milp * ann:,.0f} EUR/yr")
 print(f"  LP + price floor:    {rev_floor * ann:,.0f} EUR/yr")
@@ -416,7 +357,7 @@ else:
     axes[2].axis("off")
 
 fig.suptitle(
-    f"Simultaneous charge/discharge in LP dispatch (η_rt={ETA_RT}, daily reset)",
+    f"Simultaneous charge/discharge in LP dispatch (eta_rt={ETA_RT}, daily reset)",
     fontsize=11,
 )
 fig.tight_layout()
@@ -472,10 +413,10 @@ print(
 print()
 cheat_pct = (rev_lp / rev_milp - 1) * 100
 print(
-    f"  LP 'cheat' (LP − MILP):      {(rev_lp - rev_milp) * ann:>8,.0f} EUR/yr"
+    f"  LP 'cheat' (LP - MILP):      {(rev_lp - rev_milp) * ann:>8,.0f} EUR/yr"
     f"  ({cheat_pct:+.3f}%)"
 )
-print(f"  Neg-price value (MILP − floor): {(rev_milp - rev_floor) * ann:>8,.0f} EUR/yr")
+print(f"  Neg-price value (MILP - floor): {(rev_milp - rev_floor) * ann:>8,.0f} EUR/yr")
 simul_pct = simul_lp.mean() * 100
 print(f"  Simul. C+D hours: {simul_lp.sum():,} ({simul_pct:.2f}% of all hours)")
 n_neg_final = (simul_lp & neg_mask).sum()

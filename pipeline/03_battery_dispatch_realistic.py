@@ -63,10 +63,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pulp
 import seaborn as sns
 
 from vpp.paths import ProjPaths
+from vpp.scenarios import SCENARIO_BY_ID
 
 paths = ProjPaths()
 paths.ensure_directories()
@@ -91,11 +91,26 @@ SCENARIO_COLORS = {
     "eta90_deg_free": "#ffbb78",
 }
 SCENARIO_LABELS = {
-    "ideal": "ideal (η=1) [DR]",
-    "eta90": f"η={ETA_RT}, no deg [DR]",
-    "eta90_deg": f"η={ETA_RT}, {DEG_COST_EUR_PER_CYCLE:.0f} EUR/cyc [DR]",
-    "eta90_free": f"η={ETA_RT}, no deg [FH]",
-    "eta90_deg_free": f"η={ETA_RT}, {DEG_COST_EUR_PER_CYCLE:.0f} EUR/cyc [FH]",
+    "ideal": "ideal (eta=1) [DR]",
+    "eta90": f"eta={ETA_RT}, no deg [DR]",
+    "eta90_deg": f"eta={ETA_RT}, {DEG_COST_EUR_PER_CYCLE:.0f} EUR/cyc [DR]",
+    "eta90_free": f"eta={ETA_RT}, no deg [FH]",
+    "eta90_deg_free": f"eta={ETA_RT}, {DEG_COST_EUR_PER_CYCLE:.0f} EUR/cyc [FH]",
+}
+
+_SCENARIO_IDS_5 = [
+    "actual__lp_dr__eta100__deg000",
+    "actual__lp_dr__eta090__deg000",
+    "actual__lp_dr__eta090__deg010",
+    "actual__lp_fh__eta090__deg000",
+    "actual__lp_fh__eta090__deg010",
+]
+_SCENARIO_NAME_5 = {
+    "actual__lp_dr__eta100__deg000": "ideal",
+    "actual__lp_dr__eta090__deg000": "eta90",
+    "actual__lp_dr__eta090__deg010": "eta90_deg",
+    "actual__lp_fh__eta090__deg000": "eta90_free",
+    "actual__lp_fh__eta090__deg010": "eta90_deg_free",
 }
 
 # %% [markdown]
@@ -111,186 +126,39 @@ price_array = prices_berlin.to_numpy(dtype=float)
 n = len(price_array)
 
 print(
-    f"Loaded {n:,} hourly prices: "
-    f"{prices_berlin.index[0].date()} → {prices_berlin.index[-1].date()}"
+    f"Loaded {len(price_array):,} hourly prices: "
+    f"{prices_berlin.index[0].date()} to {prices_berlin.index[-1].date()}"
 )
 
-
-def _day_boundary_positions(index: pd.DatetimeIndex) -> list[int]:
-    dates = index.date
-    lengths = [int((np.array(dates) == d).sum()) for d in sorted(set(dates))]
-    boundaries = np.concatenate([[0], np.cumsum(lengths)]).tolist()
-    return [int(b) for b in boundaries]
-
-
-reset_daily = _day_boundary_positions(prices_berlin.index)
-reset_free = [0, n]
+prices_df = (
+    prices_berlin.rename("price_eur_mwh")
+    .reset_index()
+    .rename(columns={"index": "timestamp"})
+)
 
 # %% [markdown]
-# ## 3. LP Solvers
+# ## 3. Load Pre-computed Dispatch
 
 
 # %%
-def _solve_ideal(
-    price_array: np.ndarray,
-    soc_zero_positions: list[int],
-    capacity_kwh: float = CAPACITY_KWH,
-    power_kw: float = POWER_KW,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Net-flow LP for η=1 (Stage 1a formulation).
-
-    Returns (charge_kw, discharge_kw, soc_kwh).
-    """
-    n = len(price_array)
-    prob = pulp.LpProblem("battery_ideal", pulp.LpMaximize)
-    f = pulp.LpVariable.dicts("f", range(n), lowBound=-power_kw, upBound=power_kw)
-    soc = pulp.LpVariable.dicts("soc", range(n + 1), lowBound=0, upBound=capacity_kwh)
-    prob += pulp.lpSum(-price_array[t] * f[t] / 1000 for t in range(n))
-    for t in range(n):
-        prob += soc[t + 1] == soc[t] + f[t]
-    for pos in soc_zero_positions:
-        prob += soc[pos] == 0
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
-    if pulp.LpStatus[status] != "Optimal":
-        raise RuntimeError(f"LP status: {pulp.LpStatus[status]!r}")
-    f_val = np.array([f[t].value() for t in range(n)])
-    soc_val = np.array([soc[t].value() for t in range(n)])
-    return np.clip(f_val, 0, None), np.clip(-f_val, 0, None), soc_val
-
-
-def _solve_realistic(
-    price_array: np.ndarray,
-    soc_zero_positions: list[int],
-    capacity_kwh: float = CAPACITY_KWH,
-    power_kw: float = POWER_KW,
-    eta_c: float = ETA_C,
-    eta_d: float = ETA_D,
-    deg_cost_kwh_in: float = 0.0,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Separate charge/discharge LP with round-trip efficiency and degradation cost.
-
-    deg_cost_kwh_in: EUR per kWh stored (= DEG_COST_EUR_PER_CYCLE / CAPACITY_KWH).
-    Returns (charge_kw, discharge_kw, soc_kwh) all of length n.
-    """
-    n = len(price_array)
-    prob = pulp.LpProblem("battery_realistic", pulp.LpMaximize)
-    c = pulp.LpVariable.dicts("c", range(n), lowBound=0, upBound=power_kw)
-    d = pulp.LpVariable.dicts("d", range(n), lowBound=0, upBound=power_kw)
-    soc = pulp.LpVariable.dicts("soc", range(n + 1), lowBound=0, upBound=capacity_kwh)
-    prob += pulp.lpSum(
-        price_array[t] / 1000 * (d[t] - c[t]) - deg_cost_kwh_in * eta_c * c[t]
-        for t in range(n)
-    )
-    for t in range(n):
-        prob += soc[t + 1] == soc[t] + eta_c * c[t] - (1.0 / eta_d) * d[t]
-    for pos in soc_zero_positions:
-        prob += soc[pos] == 0
-    status = prob.solve(pulp.PULP_CBC_CMD(msg=False))
-    if pulp.LpStatus[status] != "Optimal":
-        raise RuntimeError(f"LP status: {pulp.LpStatus[status]!r}")
-    c_val = np.array([c[t].value() for t in range(n)])
-    d_val = np.array([d[t].value() for t in range(n)])
-    soc_val = np.array([soc[t].value() for t in range(n)])
-    return c_val, d_val, soc_val
-
-
-# %% [markdown]
-# ## 4. Solve Three Scenarios
-
-# %%
-print("Solving ideal (η=1, no degradation) …")
-c_ideal, d_ideal, soc_ideal = _solve_ideal(price_array, reset_daily)
-print("Done.")
-
-print(f"Solving eta90 (η_rt={ETA_RT}, no degradation) …")
-c_eta, d_eta, soc_eta = _solve_realistic(price_array, reset_daily)
-print("Done.")
-
-print(f"Solving eta90_deg (η_rt={ETA_RT}, {DEG_COST_EUR_PER_CYCLE} EUR/cycle) …")
-c_deg, d_deg, soc_deg = _solve_realistic(
-    price_array,
-    reset_daily,
-    deg_cost_kwh_in=DEG_COST_EUR_PER_CYCLE / CAPACITY_KWH,
+dispatch_raw = pd.read_parquet(
+    paths.dispatch_schedules_file,
+    filters=[("scenario_id", "in", _SCENARIO_IDS_5)],
 )
-print("Done.")
+dispatch_raw["scenario"] = dispatch_raw["scenario_id"].map(_SCENARIO_NAME_5)
 
-print(f"Solving eta90_free (η_rt={ETA_RT}, no degradation, free horizon) …")
-c_eta_free, d_eta_free, soc_eta_free = _solve_realistic(price_array, reset_free)
-print("Done.")
+merged = dispatch_raw.merge(prices_df, on="timestamp")
+merged["revenue_eur"] = merged["price_eur_mwh"] * (merged["d"] - merged["c"]) / 1000
+eta_c_map = {sid: SCENARIO_BY_ID[sid].battery.eta_c for sid in _SCENARIO_IDS_5}
+merged["eta_c"] = merged["scenario_id"].map(eta_c_map)
+merged["kwh_stored"] = merged["eta_c"] * merged["c"]
 
-print(
-    f"Solving eta90_deg_free"
-    f" (η_rt={ETA_RT}, {DEG_COST_EUR_PER_CYCLE} EUR/cycle, free horizon) …"
-)
-c_deg_free, d_deg_free, soc_deg_free = _solve_realistic(
-    price_array, reset_free, deg_cost_kwh_in=DEG_COST_EUR_PER_CYCLE / CAPACITY_KWH
-)
-print("Done.")
-
-
-# %% [markdown]
-# ## 5. Build Schedules
-
-
-# %%
-def _build_schedule(
-    index: pd.DatetimeIndex,
-    price_array: np.ndarray,
-    charge_kw: np.ndarray,
-    discharge_kw: np.ndarray,
-    soc_kwh: np.ndarray,
-    scenario: str,
-    eta_c: float = 1.0,
-) -> pd.DataFrame:
-    c = np.where(np.abs(charge_kw) < 1e-9, 0.0, charge_kw)
-    d = np.where(np.abs(discharge_kw) < 1e-9, 0.0, discharge_kw)
-    return pd.DataFrame(
-        {
-            "datetime": index,
-            "date": pd.to_datetime(index.date),
-            "hour": index.hour,
-            "price_eur_mwh": price_array,
-            "charge_kw": c.round(6),
-            "discharge_kw": d.round(6),
-            "soc_kwh": np.clip(soc_kwh, 0, None).round(6),
-            "revenue_eur": (price_array * (d - c) / 1000).round(8),
-            "kwh_stored": (eta_c * c).round(6),
-            "scenario": scenario,
-        }
-    )
-
-
-schedule = pd.concat(
-    [
-        _build_schedule(
-            prices_berlin.index, price_array, c_ideal, d_ideal, soc_ideal, "ideal", 1.0
-        ),
-        _build_schedule(
-            prices_berlin.index, price_array, c_eta, d_eta, soc_eta, "eta90", ETA_C
-        ),
-        _build_schedule(
-            prices_berlin.index, price_array, c_deg, d_deg, soc_deg, "eta90_deg", ETA_C
-        ),
-        _build_schedule(
-            prices_berlin.index,
-            price_array,
-            c_eta_free,
-            d_eta_free,
-            soc_eta_free,
-            "eta90_free",
-            ETA_C,
-        ),
-        _build_schedule(
-            prices_berlin.index,
-            price_array,
-            c_deg_free,
-            d_deg_free,
-            soc_deg_free,
-            "eta90_deg_free",
-            ETA_C,
-        ),
-    ],
-    ignore_index=True,
+schedule = merged.rename(
+    columns={"c": "charge_kw", "d": "discharge_kw", "soc": "soc_kwh"}
+).assign(
+    datetime=merged["timestamp"],
+    date=pd.to_datetime(merged["timestamp"].dt.date),
+    hour=merged["timestamp"].dt.hour,
 )
 schedule["scenario"] = schedule["scenario"].astype("category")
 
@@ -532,40 +400,54 @@ plt.show()
 # solving the η=0.9 LP at each value.
 
 # %%
-sweep_costs = [0, 5, 10, 15, 20, 30, 40, 50]
-sweep_dr_results: list[dict] = []
-sweep_fh_results: list[dict] = []
-n_days = len(reset_daily) - 1
+_SWEEP_COSTS = [0, 5, 10, 15, 20, 30, 40, 50]
+_SWEEP_IDS = [
+    f"actual__lp_{h}__eta090__deg{cost:03d}"
+    for h in ["dr", "fh"]
+    for cost in _SWEEP_COSTS
+]
 
-for deg_cost in sweep_costs:
-    for label, positions in [("DR", reset_daily), ("FH", reset_free)]:
-        print(f"  Solving η_rt={ETA_RT}, deg_cost={deg_cost} EUR/cycle [{label}] …")
-        c_sw, d_sw, _ = _solve_realistic(
-            price_array,
-            positions,
-            deg_cost_kwh_in=deg_cost / CAPACITY_KWH,
-        )
-        c_sw = np.where(np.abs(c_sw) < 1e-9, 0.0, c_sw)
-        d_sw = np.where(np.abs(d_sw) < 1e-9, 0.0, d_sw)
-        revenue = float(np.dot(price_array, d_sw - c_sw) / 1000)
-        kwh_stored = float(np.sum(ETA_C * c_sw))
-        row = {
-            "deg_cost": deg_cost,
-            "total_revenue_eur": revenue,
-            "annual_revenue_eur": revenue / n_days * 365.25,
-            "avg_annual_cycles": kwh_stored / CAPACITY_KWH / n_days * 365.25,
-        }
-        if label == "DR":
-            sweep_dr_results.append(row)
-        else:
-            sweep_fh_results.append(row)
-        print(
-            f"    → annual rev {revenue / n_days * 365.25:,.0f} EUR, "
-            f"cycles/yr {kwh_stored / CAPACITY_KWH / n_days * 365.25:.1f}"
-        )
+sweep_raw = pd.read_parquet(
+    paths.dispatch_schedules_file,
+    filters=[("scenario_id", "in", _SWEEP_IDS)],
+)
+sweep_raw = sweep_raw.merge(prices_df, on="timestamp")
+sweep_raw["revenue_eur"] = (
+    sweep_raw["price_eur_mwh"] * (sweep_raw["d"] - sweep_raw["c"]) / 1000
+)
+sweep_raw["kwh_stored"] = ETA_C * sweep_raw["c"]
+sweep_raw["horizon"] = sweep_raw["scenario_id"].str.extract(r"lp_(dr|fh)__")[0]
+sweep_raw["deg_cost"] = (
+    sweep_raw["scenario_id"].str.extract(r"deg(\d+)$")[0].astype(int)
+)
+sweep_raw["date"] = sweep_raw["timestamp"].dt.date
 
-sweep_dr = pd.DataFrame(sweep_dr_results)
-sweep_fh = pd.DataFrame(sweep_fh_results)
+sweep_stats = (
+    sweep_raw.groupby(["horizon", "deg_cost"])
+    .agg(
+        total_revenue_eur=("revenue_eur", "sum"),
+        n_days=("date", "nunique"),
+        total_kwh_stored=("kwh_stored", "sum"),
+    )
+    .reset_index()
+)
+sweep_stats["annual_revenue_eur"] = (
+    sweep_stats["total_revenue_eur"] / sweep_stats["n_days"] * 365.25
+)
+sweep_stats["avg_annual_cycles"] = (
+    sweep_stats["total_kwh_stored"] / CAPACITY_KWH / sweep_stats["n_days"] * 365.25
+)
+
+sweep_dr = (
+    sweep_stats[sweep_stats["horizon"] == "dr"]
+    .drop(columns="horizon")
+    .reset_index(drop=True)
+)
+sweep_fh = (
+    sweep_stats[sweep_stats["horizon"] == "fh"]
+    .drop(columns="horizon")
+    .reset_index(drop=True)
+)
 sweep = sweep_dr  # backward-compat alias for existing chart code below
 
 # %%

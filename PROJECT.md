@@ -82,7 +82,7 @@ Scale from a single asset to an aggregated fleet.
 
 ## Current state (2026-07-01)
 
-Stages 1a, 1b, 1b addendum, and 2a complete.
+Stages 1a, 1b, 1b addendum, 2a, and 2b complete (numerical results unchanged).
 
 SMARD DE-LU hourly prices 2018-10-01 → 2026-06-29.
 
@@ -184,15 +184,34 @@ Settlement always at actual prices; only the optimisation signal differs.
 - 55 days (2.0%) see negative forecast revenue: naïve dispatch charges on a high-
   price day (because yesterday was high) and discharges on a low-price day
 
+**Backtest framework implemented (pipeline not yet re-run):**
+
+A centralised dispatch computation layer separates solver logic from analysis:
+
+- `vpp/battery.py` — `BatteryParams` (Pydantic, frozen), `from_eta_rt` factory
+- `vpp/dispatch.py` — `solve()` dispatcher + named per-methodology functions:
+  `solve_lp_daily_reset`, `solve_lp_free_horizon`, `solve_milp_daily_reset`,
+  `solve_lp_floor_daily_reset`
+- `vpp/scenarios.py` — `ScenarioConfig` (Pydantic) + `SCENARIOS` registry (21 scenarios)
+- `pipeline/07_compute_forecasts.py` — fits naive/Ridge/LightGBM, writes
+  `data/processed/forecasts.parquet` (test period 2023+)
+- `pipeline/08_compute_dispatch.py` — runs all 21 scenarios, writes
+  `data/processed/dispatch_schedules.parquet` (schema: timestamp, c, d, soc, scenario_id)
+
+Analysis scripts 02–06 refactored: inline solvers removed, all read pre-computed
+dispatch from parquet and compute revenues via merge with actual prices.
+
+Three new cross-scenario comparison notebooks (not yet generated):
+- `pipeline/09_dispatch_overview.py` — all-scenarios metrics table + revenue chart
+- `pipeline/10_constraint_comparison.py` — DR vs FH premium across degradation sweep
+- `pipeline/11_simultaneous_cd.py` — LP vs MILP vs LP+floor revenue + simultaneous C+D
+
 ## Next steps
 
-1. Stage 2c: improve the forecast — rolling training window, additional features
-   (weather, load forecasts), or model ensembling to close part of the 639 EUR/yr gap
+1. **Run `dvc repro`** to generate `forecasts.parquet`, `dispatch_schedules.parquet`,
+   and all analysis notebooks. Spot-check: `actual__lp_dr__eta090__deg010` annual
+   revenue should be ~1,846 EUR/yr (Stage 1b table).
+2. **Stage 2c**: improve the forecast — rolling training window, additional features
+   (weather, load forecasts), or model ensembling to close part of the 639 EUR/yr gap.
 
 ## Future ideas (not yet planned)
-
-- **Separate batch computation from analysis**: a data pipeline stage that runs battery
-  optimization across many configurations (capacity, power, η, degradation cost) upfront
-  and writes all results to a single structured file. Analysis notebooks would then read
-  this file rather than re-running solvers, cleanly separating computation from
-  visualization/reporting.

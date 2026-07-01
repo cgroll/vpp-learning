@@ -30,6 +30,7 @@ dependencies = [
     # utilities
     "tqdm>=4.66.0",
     "requests>=2.32.0",
+    "pydantic>=2.0.0",
     "pulp>=3.3.2",
     "nbconvert>=7.17.1",
 ]
