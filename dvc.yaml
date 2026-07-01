@@ -30,6 +30,40 @@ stages:
       - output/images/02_irr_analysis.png:
           cache: false
 
+  battery_dispatch_realistic:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/03_battery_dispatch_realistic.ipynb pipeline/03_battery_dispatch_realistic.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/03_battery_dispatch_realistic.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/03_battery_dispatch_realistic.ipynb')"
+    deps:
+      - pipeline/03_battery_dispatch_realistic.py
+      - data/downloads/smard/prices_de_lu.parquet
+    outs:
+      - book/notebooks/03_battery_dispatch_realistic.ipynb:
+          cache: false
+      - output/images/03_scenario_comparison.png:
+          cache: false
+      - output/images/03_diurnal_comparison.png:
+          cache: false
+      - output/images/03_degradation_sensitivity.png:
+          cache: false
+      - output/images/03_free_horizon_comparison.png:
+          cache: false
+
+  simultaneous_dispatch:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/04_simultaneous_dispatch.ipynb pipeline/04_simultaneous_dispatch.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/04_simultaneous_dispatch.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/04_simultaneous_dispatch.ipynb')"
+    deps:
+      - pipeline/04_simultaneous_dispatch.py
+      - data/downloads/smard/prices_de_lu.parquet
+    outs:
+      - book/notebooks/04_simultaneous_dispatch.ipynb:
+          cache: false
+      - output/images/04_simultaneous_cd_analysis.png:
+          cache: false
+
 # Stages are added here as pipeline scripts are written.
 #
 # Pattern for download stages:

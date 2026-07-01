@@ -82,22 +82,66 @@ Scale from a single asset to an aggregated fleet.
 
 ## Current state (2026-07-01)
 
-Stage 1a complete. SMARD DE-LU hourly prices 2018-10-01 → 2026-06-29.
+Stages 1a, 1b, and 1b addendum complete. SMARD DE-LU hourly prices 2018-10-01 → 2026-06-29.
 
-Ideal LP dispatch (100 kWh / 50 kW, η=1, PuLP/CBC):
-- Daily-reset constraint costs only −0.9% vs free horizon (4,205 vs 4,244 EUR/year annualized)
+**Stage 1a — Ideal LP (`pipeline/02_battery_dispatch_ideal.py`, η=1, PuLP/CBC):**
+- Daily-reset costs only −0.9% vs free horizon (4,205 vs 4,244 EUR/year annualized)
 - Diurnal pattern: charge overnight 0–6h, discharge into 8–10h and 18–20h peaks
 - 2022 energy crisis produces ~3–5× the long-run average daily revenue
-- ~17% of total revenue comes from negative-price charging (getting paid to charge);
-  share rising post-2022 with renewable expansion
-- Investment economics: pure DA arbitrage does not clear an 8% hurdle at any realistic
-  CAPEX (IRR: +6.2% optimistic incl. 2022 → −7.2% conservative excl. 2022; base case IRR ≈ −1%)
-  → revenue stacking (FCR/aFRR) required to justify the investment
+- ~17% of total revenue from negative-price charging; share rising post-2022
+- Investment economics: IRR ≈ −1% base case → revenue stacking (FCR/aFRR) required
+
+**Stage 1b — Realistic LP + degradation sweep (`pipeline/03_battery_dispatch_realistic.py`):**
+
+Scenario comparison (100 kWh / 50 kW):
+
+| Scenario | Annual rev (EUR) | Δ% vs ideal | Cycles/year |
+|---|---|---|---|
+| ideal (η=1, no deg) — DR | 4,205 | 0% | 835 |
+| η_rt=0.9, no deg — DR | 3,490 | −17% | 731 |
+| η_rt=0.9, 10 EUR/cycle — DR | 1,846 | −56% | 114 |
+| η_rt=0.9, no deg — FH | 3,505 | −17% | — |
+| η_rt=0.9, 10 EUR/cycle — FH | 1,951 | −54% | — |
+
+- Round-trip loss alone cuts revenue by 17%; break-even spread ≈ 10.5 EUR/MWh per EUR/cycle
+- At 10 EUR/cycle degradation (≈ €45k CAPEX / 4,500 cycles), revenue halves and cycling
+  drops from 835 → 114 cycles/year
+- Free-horizon (FH) vs daily-reset (DR) premium is tiny without degradation (+0.4%) but
+  grows sharply with degradation cost: +5.7% at 10 EUR/cycle, +20% at 15, +47% at 20,
+  +76% at 30, +145% at 40 EUR/cycle
+- Intuition: daily reset forces SoC=0 each midnight so idle days are always empty; FH
+  allows multi-day carry-over to wait for rare high-spread opportunities
+
+**Stage 1b addendum — Simultaneous charge/discharge analysis (`pipeline/04_simultaneous_dispatch.py`):**
+
+Three dispatch formulations compared (η_rt=0.9, daily reset, 100 kWh / 50 kW):
+
+| Approach | Annual rev (EUR) | vs LP | States valid? |
+|---|---|---|---|
+| LP baseline | 3,490 | — | No — c·d > 0 in 2% of hours |
+| MILP (binary mutual exclusivity) | 3,481 | −0.27% | Yes |
+| LP + price floor at 0 | 3,401 | −2.5% | Yes, but sub-optimal |
+
+- Simultaneous C+D in the LP occurs in 1,390 hours (2.05%) — **100% at negative-price hours**,
+  confirming the mechanism: the LP "burns" SoC through η losses to create headroom for
+  additional gross charging when prices are negative
+- The LP "cheat" is worth only 9 EUR/yr (+0.27%): LP is a safe approximation for revenue
+  forecasting but physically invalid
+- The price-floor fix is counterproductive: it forfeits 79 EUR/yr of legitimate negative-price
+  charging (9× the size of the LP cheat it corrects)
+- MILP is the correct and practical solution: with daily-reset sub-problems of 24 binary
+  variables each, CBC solves it as fast as the LP
+- Revenue is always evaluated at real prices regardless of which prices were used for
+  optimization (distorted objective ≠ distorted settlement)
 
 ## Next steps
 
-1. Stage 1b: `pipeline/03_battery_dispatch_realistic.py`
-   - Add round-trip efficiency (η=90%): requires separate charge/discharge variables
-   - Add degradation cost: linear EUR/cycle term in objective
-   - Scenario comparison table: ideal vs η=90% vs η=90%+degradation (revenue, Δ%, avg cycles)
-2. Stage 2a: `pipeline/04_price_forecast_baseline.py` — baseline day-ahead price forecast at auction time
+1. Stage 2a: `pipeline/05_price_forecast_baseline.py` — baseline day-ahead price forecast at auction time
+
+## Future ideas (not yet planned)
+
+- **Separate batch computation from analysis**: a data pipeline stage that runs battery
+  optimization across many configurations (capacity, power, η, degradation cost) upfront
+  and writes all results to a single structured file. Analysis notebooks would then read
+  this file rather than re-running solvers, cleanly separating computation from
+  visualization/reporting.

@@ -16,6 +16,10 @@ project:
       children:
         - file: notebooks/02_battery_dispatch_ideal.ipynb
           title: 1a — Ideal LP (perfect foresight)
+        - file: notebooks/03_battery_dispatch_realistic.ipynb
+          title: 1b — Efficiency + degradation cost
+        - file: notebooks/04_simultaneous_dispatch.ipynb
+          title: 1b addendum — Simultaneous C/D analysis
 site:
   options:
     folders: true

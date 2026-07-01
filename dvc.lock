@@ -56,3 +56,65 @@ stages:
       hash: md5
       md5: e6bbbdbba92b408d7a4031fd4351092f
       size: 162567
+  battery_dispatch_realistic:
+    cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
+      python3 --output book/notebooks/03_battery_dispatch_realistic.ipynb pipeline/03_battery_dispatch_realistic.py\n\
+      uv run python -c \"import nbformat; nb = nbformat.read('book/notebooks/03_battery_dispatch_realistic.ipynb',
+      as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw'
+      and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/03_battery_dispatch_realistic.ipynb')\"\
+      \n"
+    deps:
+    - path: data/downloads/smard/prices_de_lu.parquet
+      hash: md5
+      md5: f1886a2b97cd6a365960541adb2098fa
+      size: 828689
+    - path: pipeline/03_battery_dispatch_realistic.py
+      hash: md5
+      md5: bf8cf4acbf2565f4946f88be68eed168
+      size: 26359
+    outs:
+    - path: book/notebooks/03_battery_dispatch_realistic.ipynb
+      hash: md5
+      md5: 5c9c96edc7bb3b9a2e2b6dd6ae63bd41
+      size: 47802
+    - path: output/images/03_degradation_sensitivity.png
+      hash: md5
+      md5: e0beef231b320493d859c8f1c85be5cc
+      size: 178310
+    - path: output/images/03_diurnal_comparison.png
+      hash: md5
+      md5: c0ed20be84979f639f536de9d6002094
+      size: 149917
+    - path: output/images/03_free_horizon_comparison.png
+      hash: md5
+      md5: 3d3fe983de87e6f24d0a72156458a03e
+      size: 109737
+    - path: output/images/03_scenario_comparison.png
+      hash: md5
+      md5: 107377f0a2a1d404fd724e8a242afe44
+      size: 129743
+  simultaneous_dispatch:
+    cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
+      python3 --output book/notebooks/04_simultaneous_dispatch.ipynb pipeline/04_simultaneous_dispatch.py\n\
+      uv run python -c \"import nbformat; nb = nbformat.read('book/notebooks/04_simultaneous_dispatch.ipynb',
+      as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw'
+      and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/04_simultaneous_dispatch.ipynb')\"\
+      \n"
+    deps:
+    - path: data/downloads/smard/prices_de_lu.parquet
+      hash: md5
+      md5: f1886a2b97cd6a365960541adb2098fa
+      size: 828689
+    - path: pipeline/04_simultaneous_dispatch.py
+      hash: md5
+      md5: b62c39f9873be7d4e01b0322213e6142
+      size: 16298
+    outs:
+    - path: book/notebooks/04_simultaneous_dispatch.ipynb
+      hash: md5
+      md5: 859cd3443a41047937cd8a799d13a687
+      size: 26543
+    - path: output/images/04_simultaneous_cd_analysis.png
+      hash: md5
+      md5: 6693cde43ff9353ee42bc3c89ad23e03
+      size: 192796
