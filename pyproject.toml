@@ -33,6 +33,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pulp>=3.3.2",
     "nbconvert>=7.17.1",
+    "openpyxl>=3.1.5",
 ]
 
 [dependency-groups]

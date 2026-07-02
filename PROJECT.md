@@ -59,13 +59,48 @@ Move from perfect foresight to auction-time forecasts; use optimized quantities 
 
 ---
 
-## Stage 3 — Additional revenue streams
+## Stage 3 — Value stacking: additional revenue streams
 
-Extend beyond pure day-ahead arbitrage.
+Extend beyond pure day-ahead arbitrage. Investment economics on DA alone yield IRR ≈ −1%;
+ancillary services are required for viability. A case-study (1 MW / 2 MWh BESS, June 2025)
+shows value stacking produces +90% uplift over a DA-only strategy, with FCR and aFRR
+contributing far more than DA arbitrage itself (see `bess_research.md` for details).
 
-- **Frequency containment reserve (FCR) / aFRR capacity market** — bid symmetric capacity to TSO; understand availability constraints vs. arbitrage conflict.
-- **Intraday continuous trading** — trade against intraday price signals; RL or threshold policies. (Later.)
-- Combined revenue stack: quantify value of each stream and how they conflict (e.g. FCR capacity reservation reduces arbitrage flexibility).
+Market gate closures determine the optimization sequence each day:
+FCR (08:00) → aFRR (09:00) → Day-ahead (12:00) → Intraday auction (15:00) → Continuous intraday.
+
+**Phase 3a — FCR (Frequency Containment Reserve)**
+
+- Data: regelleistung.net publishes weekly tender results (capacity price, cleared volume)
+  as free downloadable CSVs. Write `pipeline/01_download_fcr_prices.py`.
+- Model: optimize FCR capacity committed per 4-hour block (≤ battery power). SoC must stay
+  near 50% during the window to allow both upward and downward response.
+- Key output: FCR capacity price threshold at which FCR beats DA arbitrage; SoC reservation
+  cost (EUR of foregone arbitrage per MW of FCR committed).
+
+**Phase 3b — aFRR (Automatic Frequency Restoration Reserve)**
+
+- Data: regelleistung.net daily aFRR capacity and energy clearing prices. Same download
+  script can cover FCR + aFRR + mFRR in one pass.
+- Model: joint FCR + aFRR + DA optimization. aFRR adds a stochastic activation component;
+  start with a fixed 25% energy activation rate assumption, then sensitivity analysis.
+- Products: separate up/down capacity bids; must sustain 60-minute delivery.
+
+**Phase 3c — Intraday trading**
+
+- Data: Open Power System Data (OPSD) 15-min intraday continuous index (ID3 VWAP) as a
+  free price proxy. Full EPEX Spot order-book data is commercial.
+- Model: rolling-horizon dispatch — after DA results are known, re-optimize residual
+  capacity against 15-min intraday prices to correct positions.
+- Reference: `PortfolioEnergy/rtc-tools-bess-demo` (RTC-Tools + HiGHS MILP, rolling
+  horizon, "rolling intrinsic" valuation).
+
+**Combined revenue stack analysis**
+
+- Quantify marginal value of each added stream (FCR alone, FCR + aFRR, full stack).
+- Quantify conflicts: how much DA arbitrage revenue is sacrificed per MW of FCR/aFRR
+  capacity committed?
+- Scenario comparison table extended with ancillary-service scenarios.
 
 ---
 
@@ -206,12 +241,35 @@ Three new cross-scenario comparison notebooks (not yet generated):
 - `pipeline/10_constraint_comparison.py` — DR vs FH premium across degradation sweep
 - `pipeline/11_simultaneous_cd.py` — LP vs MILP vs LP+floor revenue + simultaneous C+D
 
+**Stage 3 data download complete (`pipeline/01_download_regelleistung.py`):**
+
+- `vpp/regelleistung.py` — CRDS API client using regelleistung.net public Excel bulk files
+- Downloads via `GET /apps/crds/api/v2/tenders/files/{filename}` (monthly result Excel per product)
+- Queries one month at a time to avoid the API's 100-item cap
+- Handles 3 FCR format variants: pre-2021 24h product (skipped), 2021–2022-08
+  abbreviated country columns ("Sheet0"), 2022-09+ full names ("001")
+- Handles 2 aFRR format variants: pre-2022 EUR/MW per block (÷4 → EUR/MW/h), 2022+
+  EUR/MW/h directly
+
+Output files (in `data/downloads/regelleistung/`):
+
+| File | Coverage | Rows | Schema |
+|------|----------|------|--------|
+| `fcr_prices.parquet` | 2021-01-01 → 2026-06-30 | 2,006 | negpos_00_04…negpos_20_24 (EUR/MW/h) |
+| `afrr_capacity_prices.parquet` | 2018-10-01 → 2026-06-30 | 2,830 | neg_00_04…pos_20_24 (EUR/MW/h) |
+
+FCR 2024 mean prices by block (EUR/MW/h): 10.1 (00-04) → 25.9 (12-16) → 11.5 (20-24).
+Midday peak reflects high DA arbitrage competition reducing FCR clearing prices at low-spread hours.
+
 ## Next steps
 
 1. **Run `dvc repro`** to generate `forecasts.parquet`, `dispatch_schedules.parquet`,
    and all analysis notebooks. Spot-check: `actual__lp_dr__eta090__deg010` annual
    revenue should be ~1,846 EUR/yr (Stage 1b table).
-2. **Stage 2c**: improve the forecast — rolling training window, additional features
+2. **Stage 3a**: model FCR vs DA arbitrage trade-off using the downloaded FCR prices.
+   Key questions: at what FCR clearing price does FCR dominate DA? How much DA revenue
+   is lost per MW of FCR capacity committed (SoC reservation cost)?
+3. **Stage 2c**: improve the forecast — rolling training window, additional features
    (weather, load forecasts), or model ensembling to close part of the 639 EUR/yr gap.
 
 ## Future ideas (not yet planned)

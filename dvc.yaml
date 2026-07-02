@@ -1,4 +1,10 @@
 stages:
+  download_regelleistung:
+    cmd: PYTHONUNBUFFERED=1 uv run python pipeline/01_download_regelleistung.py
+    outs:
+      - data/downloads/regelleistung/fcr_prices.parquet
+      - data/downloads/regelleistung/afrr_capacity_prices.parquet
+
   download_smard_prices:
     cmd: uv run python pipeline/01_download_smard_prices.py
     outs:

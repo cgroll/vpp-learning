@@ -9,6 +9,7 @@ vpp-learning/
 │   └── paths.py             # Centralized path configuration
 ├── pipeline/                # Pipeline scripts
 │   ├── 01_download_*.py     # Data acquisition (no charts)
+│   ├── 07_compute_*.py      # Computation stages (solvers/models → processed parquet)
 │   └── 02_*.py, 03_*.py … # Analysis scripts → book notebooks
 ├── book/                    # MyST Jupyter Book source
 │   ├── notebooks/           # Executed .ipynb files (DVC outputs, tracked in git)
@@ -75,6 +76,47 @@ stages:
       - data/downloads/my_data.parquet   # cached by DVC, not in git
 ```
 
+### Computation stages
+
+Computation stages (`07_*`, `08_*`, …) run expensive solvers or fit models once and write
+the results to `data/processed/`. Analysis notebooks then read from these files rather
+than re-running solvers. This cleanly separates computation from visualization and lets
+multiple notebooks share the same results without duplication.
+
+- No jupytext header — run directly as `python pipeline/07_compute_*.py`.
+- No charts or visualizations — produce parquet files only.
+- List all `vpp/` modules they depend on as DVC deps so any solver/model change triggers
+  recomputation.
+- Output files go to `data/processed/` with DVC caching (default `cache: true`).
+
+```yaml
+stages:
+  compute_my_results:
+    cmd: uv run python pipeline/07_compute_my_results.py
+    deps:
+      - pipeline/07_compute_my_results.py
+      - vpp/dispatch.py          # list any vpp/ modules used
+      - vpp/scenarios.py
+      - data/downloads/my_data.parquet
+    outs:
+      - data/processed/my_results.parquet   # cached by DVC, not in git
+```
+
+Analysis scripts that consume this file declare it as a dep:
+
+```yaml
+  my_analysis:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext ...
+    deps:
+      - pipeline/03_my_analysis.py
+      - data/processed/my_results.parquet   # ← computation stage output
+    outs:
+      - book/notebooks/03_my_analysis.ipynb:
+          cache: false
+```
+
 ### Running the pipeline
 
 ```bash
@@ -94,18 +136,25 @@ make serve     # myst start (local book preview)
 
 ## Pipeline conventions
 
-### Two types of scripts
+### Three types of scripts
 
 **1. Download scripts** (`01_*`)
 - No charts or visualizations.
 - Read/write data files only.
 - No jupytext header — run directly as `python pipeline/01_*.py`.
 
-**2. Analysis scripts** (`02_*`, `03_*`, …)
+**2. Computation scripts** (`07_*`, `08_*`, …)
+- Run solvers or fit models; write results to `data/processed/` as parquet.
+- No charts or visualizations.
+- No jupytext header — run directly as `python pipeline/07_*.py`.
+- Multiple analysis notebooks can read from the same computed file.
+
+**3. Analysis scripts** (`02_*`, `03_*`, …)
 - Jupytext `# %%` cell markers and a jupytext/kernelspec header (see below).
 - Save all figures to `output/images/` via `fig.savefig()`.
 - Use MyST `{figure}` directives in `# %% [markdown]` cells.
 - DVC runs them via jupytext → produces an executed `.ipynb` in `book/notebooks/`.
+- Read pre-computed data from `data/processed/` rather than running solvers inline.
 
 ### Jupytext header for analysis scripts
 
@@ -180,7 +229,12 @@ def my_new_file(self) -> Path:
 1. Write the script in `pipeline/`.
 2. Add a property to `vpp/paths.py` for every new data file.
 3. Add a stage to `dvc.yaml` with `cmd`, `deps`, and `outs`.
-4. Add the notebook to the `toc` in `book/myst.yml` (if analysis).
+   - Download stage: outputs in `data/downloads/`, no `cache: false`.
+   - Computation stage: outputs in `data/processed/`, no `cache: false`; list all
+     `vpp/` modules used as deps.
+   - Analysis stage: use the jupytext command template; `cache: false` on notebooks
+     and images; declare any `data/processed/` files it reads as deps.
+4. Add the notebook to the `toc` in `book/myst.yml` (analysis stages only).
 
 ## Git conventions
 

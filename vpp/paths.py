@@ -90,6 +90,21 @@ class ProjPaths:
         """DE-LU day-ahead electricity prices, hourly (EUR/MWh)."""
         return self.smard_downloads_path / "prices_de_lu.parquet"
 
+    @property
+    def regelleistung_downloads_path(self) -> Path:
+        """Directory for all regelleistung.net raw downloads."""
+        return self.downloads_path / "regelleistung"
+
+    @property
+    def fcr_prices_file(self) -> Path:
+        """FCR capacity prices per 4h block (EUR/MW/h). Six block columns per day."""
+        return self.regelleistung_downloads_path / "fcr_prices.parquet"
+
+    @property
+    def afrr_capacity_prices_file(self) -> Path:
+        """aFRR capacity prices, 4h blocks, EUR/MW/h. Columns: neg_00_04…pos_20_24."""
+        return self.regelleistung_downloads_path / "afrr_capacity_prices.parquet"
+
     # ------------------------------------------------------------------ #
     # Processed data files                                                 #
     # ------------------------------------------------------------------ #
@@ -113,6 +128,7 @@ class ProjPaths:
         dirs = [
             self.downloads_path,
             self.smard_downloads_path,
+            self.regelleistung_downloads_path,
             self.processed_data_path,
             self.images_path,
             self.reports_path,
