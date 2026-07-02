@@ -25,6 +25,7 @@ class ScenarioConfig(BaseModel, frozen=True):
     battery: BatteryParams
     price_signal: str
     method_id: str
+    fcr_blocks: frozenset[int] = frozenset()  # blocks 0–5 committed to FCR
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +106,20 @@ SCENARIOS: list[ScenarioConfig] = [
         battery=_B_ETA090,
         price_signal="naive_forecast",
         method_id="milp_dr",
+    ),
+    # ------------------------------------------------------------------
+    # Stage 3a: FCR-only baseline (all 6 blocks, η=1, perfect foresight)
+    # Revenue = FCR capacity payments only; no DA dispatch.
+    # Optimistic assumption: FCR activations cancel within each 4h block,
+    # so SoC is held constant at 50% (no energy exchanged).
+    # ------------------------------------------------------------------
+    ScenarioConfig(
+        scenario_id="fcr_only__eta100",
+        name="FCR only – all blocks, η=1",
+        battery=_B_ETA100,
+        price_signal="actual",  # not used by FCR solver; kept for schema consistency
+        method_id="fcr_all",
+        fcr_blocks=frozenset(range(6)),
     ),
 ]
 

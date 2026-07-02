@@ -175,6 +175,24 @@ stages:
     outs:
       - data/processed/dispatch_schedules.parquet
 
+  fcr_comparison:
+    cmd: |
+      set -e
+      MPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel python3 --output book/notebooks/12_fcr_comparison.ipynb pipeline/12_fcr_comparison.py
+      uv run python -c "import nbformat; nb = nbformat.read('book/notebooks/12_fcr_comparison.ipynb', as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw' and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/12_fcr_comparison.ipynb')"
+    deps:
+      - pipeline/12_fcr_comparison.py
+      - data/downloads/smard/prices_de_lu.parquet
+      - data/downloads/regelleistung/fcr_prices.parquet
+      - data/processed/dispatch_schedules.parquet
+    outs:
+      - book/notebooks/12_fcr_comparison.ipynb:
+          cache: false
+      - output/images/12_annual_revenue_comparison.png:
+          cache: false
+      - output/images/12_fcr_block_prices.png:
+          cache: false
+
 # Stages are added here as pipeline scripts are written.
 #
 # Pattern for download stages:

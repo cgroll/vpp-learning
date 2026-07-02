@@ -33,6 +33,8 @@ def solve(
         return solve_milp_daily_reset(prices, battery)
     elif method_id == "lp_floor_dr":
         return solve_lp_floor_daily_reset(prices, battery)
+    elif method_id == "fcr_all":
+        return solve_fcr_all_blocks(prices, battery)
     else:
         raise ValueError(f"Unknown method_id: {method_id!r}")
 
@@ -87,6 +89,19 @@ def solve_milp_daily_reset(prices: pd.Series, battery: BatteryParams) -> pd.Data
         np.array(result_d),
         np.array(result_soc),
     )
+
+
+def solve_fcr_all_blocks(prices: pd.Series, battery: BatteryParams) -> pd.DataFrame:
+    """FCR committed for all 24 hours: no DA dispatch, SoC held at 50%.
+
+    Under the optimistic assumption that FCR activations cancel within each
+    4-hour block, the battery's SoC is unchanged by FCR. No optimisation is
+    needed. Revenue (capacity payments) is added by the caller via the fcr_mw
+    column written in 08_compute_dispatch.py.
+    """
+    n = len(prices)
+    soc_target = battery.capacity_kwh * 0.5
+    return _to_df(prices.index, np.zeros(n), np.zeros(n), np.full(n, soc_target))
 
 
 def solve_lp_floor_daily_reset(

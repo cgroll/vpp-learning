@@ -4,7 +4,9 @@ Iterates over SCENARIOS in vpp/scenarios.py, runs the appropriate solver for
 each one, and concatenates results into a single wide-format Parquet file.
 
 Output: data/processed/dispatch_schedules.parquet
-Columns: timestamp, c (kW), d (kW), soc (kWh), scenario_id
+Columns: timestamp, c (kW), d (kW), soc (kWh), fcr_mw (MW), scenario_id
+  - fcr_mw: MW of FCR capacity committed in that hour; 0 for DA-only scenarios.
+    FCR revenue = fcr_price_eur_mw_h * fcr_mw (computed in analysis scripts).
 """
 
 import pandas as pd
@@ -61,6 +63,17 @@ for sc in tqdm(SCENARIOS, desc="Solving scenarios"):
     prices = _load_price_signal(sc.price_signal)
     df = solve(prices, sc.battery, sc.method_id)
     df["scenario_id"] = sc.scenario_id
+
+    # FCR committed MW per hour — non-zero only for FCR scenarios.
+    # block = hour_of_day // 4 (0–5); power_kw / 1000 converts kW → MW.
+    if sc.fcr_blocks:
+        hour_of_day = df["timestamp"].dt.hour
+        in_fcr_block = (hour_of_day // 4).isin(sc.fcr_blocks)
+        fcr_kw = sc.battery.power_kw / 1000.0
+        df["fcr_mw"] = in_fcr_block.map({True: fcr_kw, False: 0.0})
+    else:
+        df["fcr_mw"] = 0.0
+
     results.append(df)
     tqdm.write(f"  {sc.scenario_id}: {len(df):,} rows")
 

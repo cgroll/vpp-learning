@@ -26,6 +26,10 @@ project:
           title: 2a — Baseline price forecast
         - file: notebooks/06_forecast_dispatch.ipynb
           title: 2b — Forecast-driven dispatch
+    - title: Stage 3 — Value Stacking
+      children:
+        - file: notebooks/12_fcr_comparison.ipynb
+          title: 3a — FCR vs DA arbitrage
     - title: Cross-Scenario Analysis
       children:
         - file: notebooks/09_dispatch_overview.ipynb

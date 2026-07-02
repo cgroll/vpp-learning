@@ -21,8 +21,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/02_battery_dispatch_ideal.py
       hash: md5
       md5: 9c0c9b1101a8e69e9d3574079280cfe8
@@ -30,7 +30,7 @@ stages:
     outs:
     - path: book/notebooks/02_battery_dispatch_ideal.ipynb
       hash: md5
-      md5: 6b4c88da9f71c0d4d3cbbfb17770124e
+      md5: d5162d110e658e71a29986811c55493b
       size: 48986
     - path: output/images/02_annual_revenue_comparison.png
       hash: md5
@@ -74,8 +74,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/03_battery_dispatch_realistic.py
       hash: md5
       md5: a8f589206900a23fd653faf94646c057
@@ -83,7 +83,7 @@ stages:
     outs:
     - path: book/notebooks/03_battery_dispatch_realistic.ipynb
       hash: md5
-      md5: ef70d58723ce1b003013d3bc09e49f91
+      md5: cf37761e972d3066b5a19a8990d0a6c4
       size: 38267
     - path: output/images/03_degradation_sensitivity.png
       hash: md5
@@ -115,8 +115,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/04_simultaneous_dispatch.py
       hash: md5
       md5: 0eb5c8dd3e02905d4ecb0b905a11b856
@@ -124,7 +124,7 @@ stages:
     outs:
     - path: book/notebooks/04_simultaneous_dispatch.ipynb
       hash: md5
-      md5: 3a9ecbd2ffda7f551227708a26527480
+      md5: 8455dba7894ef040d168413e6e40a9ed
       size: 23020
     - path: output/images/04_simultaneous_cd_analysis.png
       hash: md5
@@ -173,8 +173,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/06_forecast_dispatch.py
       hash: md5
       md5: 01e43377b98d464d711dff290778bc31
@@ -182,7 +182,7 @@ stages:
     outs:
     - path: book/notebooks/06_forecast_dispatch.ipynb
       hash: md5
-      md5: 09ca29d1bd6332cd8a7868564d59e068
+      md5: 5df87563e159bc1f877c86ebe9723492
       size: 16934
     - path: output/images/06_annual_revenue_comparison.png
       hash: md5
@@ -221,25 +221,25 @@ stages:
       size: 992000
     - path: pipeline/08_compute_dispatch.py
       hash: md5
-      md5: 66c488deda055ea506c50c98c86e845d
-      size: 2799
+      md5: 8f1544dd733dcfec5a36df4d4813ecfc
+      size: 3398
     - path: vpp/battery.py
       hash: md5
       md5: 0de8e2723098dda8ad2c0d2cd9756b5c
       size: 1221
     - path: vpp/dispatch.py
       hash: md5
-      md5: 6a9956b9bee5470ef385b28f1413a9cb
-      size: 8086
+      md5: ac48c5f9ba4901e5fb60da7e79998184
+      size: 8762
     - path: vpp/scenarios.py
       hash: md5
-      md5: 498d4ed8a7ff7645f249d6d94c219618
-      size: 4288
+      md5: 4a2ec795a586cda87643c68e91981406
+      size: 5075
     outs:
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
   dispatch_overview:
     cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
       python3 --output book/notebooks/09_dispatch_overview.ipynb pipeline/09_dispatch_overview.py\n\
@@ -254,8 +254,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/09_dispatch_overview.py
       hash: md5
       md5: 092bec9ce3f4afeb4af3cf7bcaca34f3
@@ -263,16 +263,16 @@ stages:
     outs:
     - path: book/notebooks/09_dispatch_overview.ipynb
       hash: md5
-      md5: 2f5bbd8d4b2fa5f515fc73fef64e615c
-      size: 14966
+      md5: f1bf38261c5194ff71f433fcc6194a14
+      size: 15072
     - path: output/images/09_dispatch_overview.png
       hash: md5
       md5: 53be314f1cf9fcbc5129cec114696a60
       size: 133361
     - path: output/images/09_scenario_table.png
       hash: md5
-      md5: a2b2a896e292ce7cabe156522722ea7f
-      size: 185429
+      md5: 36e04bd8ac3c3836cfe08d785d97577f
+      size: 191158
   constraint_comparison:
     cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
       python3 --output book/notebooks/10_constraint_comparison.ipynb pipeline/10_constraint_comparison.py\n\
@@ -287,8 +287,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/10_constraint_comparison.py
       hash: md5
       md5: 26fe874452f95f9f467f8644f4f80d43
@@ -296,7 +296,7 @@ stages:
     outs:
     - path: book/notebooks/10_constraint_comparison.ipynb
       hash: md5
-      md5: d7dec2fa7aa74c0db381715ad0ddde26
+      md5: 26bd2ad6ba22ab9aa55f97f72b20e931
       size: 13806
     - path: output/images/10_constraint_comparison.png
       hash: md5
@@ -320,8 +320,8 @@ stages:
       size: 828689
     - path: data/processed/dispatch_schedules.parquet
       hash: md5
-      md5: ed402410f2873565b49cb21b2777a90d
-      size: 4367476
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
     - path: pipeline/11_simultaneous_cd.py
       hash: md5
       md5: b4b5f391caade10b1d148c4c3133bc78
@@ -329,9 +329,57 @@ stages:
     outs:
     - path: book/notebooks/11_simultaneous_cd.ipynb
       hash: md5
-      md5: 0d88e8de575c5105bc330a3034482687
+      md5: 337514e6d572e0bb53a7fcd38bbbebc4
       size: 15276
     - path: output/images/11_simultaneous_cd.png
       hash: md5
       md5: bd75af6c8c5df2ca0bb71c2fb8f59c25
       size: 102204
+  download_regelleistung:
+    cmd: PYTHONUNBUFFERED=1 uv run python pipeline/01_download_regelleistung.py
+    outs:
+    - path: data/downloads/regelleistung/afrr_capacity_prices.parquet
+      hash: md5
+      md5: 3a0ee288602652ab7553b11ef639cd4b
+      size: 181349
+    - path: data/downloads/regelleistung/fcr_prices.parquet
+      hash: md5
+      md5: 55869719bce377e445f36e9d93a142b6
+      size: 73807
+  fcr_comparison:
+    cmd: "set -e\nMPLBACKEND=Agg uv run jupytext --to notebook --execute --set-kernel
+      python3 --output book/notebooks/12_fcr_comparison.ipynb pipeline/12_fcr_comparison.py\n\
+      uv run python -c \"import nbformat; nb = nbformat.read('book/notebooks/12_fcr_comparison.ipynb',
+      as_version=4); nb.cells = [c for c in nb.cells if not (c.cell_type == 'raw'
+      and 'jupytext' in c.source)]; nbformat.write(nb, 'book/notebooks/12_fcr_comparison.ipynb')\"\
+      \n"
+    deps:
+    - path: data/downloads/regelleistung/fcr_prices.parquet
+      hash: md5
+      md5: 55869719bce377e445f36e9d93a142b6
+      size: 73807
+    - path: data/downloads/smard/prices_de_lu.parquet
+      hash: md5
+      md5: f1886a2b97cd6a365960541adb2098fa
+      size: 828689
+    - path: data/processed/dispatch_schedules.parquet
+      hash: md5
+      md5: c0c11cffe341d31236922205d028a8c2
+      size: 4520224
+    - path: pipeline/12_fcr_comparison.py
+      hash: md5
+      md5: b310270c86999d45d0a78b235379548a
+      size: 8545
+    outs:
+    - path: book/notebooks/12_fcr_comparison.ipynb
+      hash: md5
+      md5: 9242335a48d7b3f3b9e9fbe70410d433
+      size: 17060
+    - path: output/images/12_annual_revenue_comparison.png
+      hash: md5
+      md5: 458122701cb2077fd63e4b7a5204956d
+      size: 57270
+    - path: output/images/12_fcr_block_prices.png
+      hash: md5
+      md5: b9c3bbf3cd2bd352c092b57b5bf38d32
+      size: 66314

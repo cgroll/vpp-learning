@@ -115,9 +115,9 @@ Scale from a single asset to an aggregated fleet.
 
 ---
 
-## Current state (2026-07-01)
+## Current state (2026-07-02)
 
-Stages 1a, 1b, 1b addendum, 2a, and 2b complete (numerical results unchanged).
+Stages 1a, 1b, 1b addendum, 2a, 2b, and 3a (FCR baseline) complete.
 
 SMARD DE-LU hourly prices 2018-10-01 → 2026-06-29.
 
@@ -261,15 +261,48 @@ Output files (in `data/downloads/regelleistung/`):
 FCR 2024 mean prices by block (EUR/MW/h): 10.1 (00-04) → 25.9 (12-16) → 11.5 (20-24).
 Midday peak reflects high DA arbitrage competition reducing FCR clearing prices at low-spread hours.
 
+**Stage 3a — FCR vs DA arbitrage (`pipeline/12_fcr_comparison.py`):**
+
+Scenario B (FCR-only): all 6 blocks committed daily, optimistic cancellation
+assumption (FCR activations cancel within each 4h block → SoC frozen at 50%),
+η=1, no degradation. Revenue = FCR clearing price × 4h × 0.05 MW per block.
+
+| Year | DA only (EUR/yr) | FCR only (EUR/yr) | FCR premium |
+|------|-----------------|-------------------|-------------|
+| 2021 | 3,577 | 7,504 | +110% |
+| 2022 | 8,694 | 10,124 | +16% |
+| 2023 | 4,300 | 5,601 | +30% |
+| 2024 | 4,720 | 7,130 | +51% |
+| 2025 | 5,277 | 6,657 | +26% |
+| 2026 | 5,794 | 7,688 | +33% |
+| **Overall** | **5,357** | **7,429** | **+39%** |
+
+- FCR beats DA by +39% on average under perfect foresight
+- Premium collapses to +16% in 2022 energy crisis (record DA spreads narrowed
+  the gap; FCR prices also rose, but couldn't keep pace with extreme arbitrage)
+- FCR is more stable: 5,600–10,100 EUR/yr vs DA 3,600–8,700 EUR/yr
+- Midday block (12–16) commands highest FCR prices (~26 EUR/MW/h in 2024)
+  because batteries prefer DA in those hours — FCR must compensate
+
+Framework additions:
+- `ScenarioConfig.fcr_blocks` — frozenset of 4h blocks (0–5) committed to FCR
+- `solve_fcr_all_blocks()` in `vpp/dispatch.py` — returns zeros for c/d, SoC at 50%
+- `dispatch_schedules.parquet` gains `fcr_mw` column (MW committed per hour; 0
+  for DA-only scenarios); FCR revenue = `fcr_price_eur_mw_h × fcr_mw` in analysis
+
 ## Next steps
 
-1. **Run `dvc repro`** to generate `forecasts.parquet`, `dispatch_schedules.parquet`,
-   and all analysis notebooks. Spot-check: `actual__lp_dr__eta090__deg010` annual
-   revenue should be ~1,846 EUR/yr (Stage 1b table).
-2. **Stage 3a**: model FCR vs DA arbitrage trade-off using the downloaded FCR prices.
-   Key questions: at what FCR clearing price does FCR dominate DA? How much DA revenue
-   is lost per MW of FCR capacity committed (SoC reservation cost)?
-3. **Stage 2c**: improve the forecast — rolling training window, additional features
-   (weather, load forecasts), or model ensembling to close part of the 639 EUR/yr gap.
+1. **Run `dvc repro`** to re-run 7 stale analysis stages (02–04, 06, 09–11)
+   whose outputs are unchanged but whose dvc.lock entries are stale after
+   `dispatch_schedules.parquet` was regenerated with the FCR scenario.
+2. **Stage 3a continued — optimal block selection (Scenario C)**: MILP with one
+   binary variable per 4h block per day (FCR or DA). Key output: for each block,
+   the minimum FCR clearing price at which FCR beats DA (the break-even price).
+   The 2022 result (FCR premium only +16%) suggests that on high-spread days some
+   blocks might flip from FCR to DA — Scenario C will reveal which ones.
+3. **Stage 3b** — aFRR capacity bids alongside FCR, using downloaded
+   `afrr_capacity_prices.parquet`.
+4. **Stage 2c**: improve the forecast — rolling training window, additional
+   features, or ensembling to close the 639 EUR/yr DA efficiency gap.
 
 ## Future ideas (not yet planned)
