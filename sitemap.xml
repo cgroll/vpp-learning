@@ -7,4 +7,28 @@
   <url>
     <loc>http://localhost:3000/notebooks/battery-dispatch-ideal</loc>
   </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/battery-dispatch-realistic</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/simultaneous-dispatch</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/price-forecast-baseline</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/forecast-dispatch</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/fcr-comparison</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/dispatch-overview</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/constraint-comparison</loc>
+  </url>
+  <url>
+    <loc>http://localhost:3000/notebooks/simultaneous-cd</loc>
+  </url>
 </urlset>
